@@ -1,0 +1,13 @@
+{
+  "user_id": "user-1",
+  "full_name": "Talha R.",
+  "headline": "Backend / Platform Engineer",
+  "summary": "Backend engineer focused on Python services, cloud infrastructure, and data pipelines.",
+  "skills": ["python", "fastapi", "docker", "postgresql", "aws", "redis", "sql"],
+  "years_experience": 4,
+  "titles": ["Backend Engineer", "Python Developer"],
+  "locations_preferred": ["Remote", "Karachi"],
+  "remote_ok": true,
+  "career_goals": "Grow into a senior platform engineering role working on scalable distributed systems.",
+  "raw_cv_text": "Talha R.\nBackend Engineer\n4 years experience building Python services with FastAPI, Docker, PostgreSQL, Redis and AWS.\nSkills: python, fastapi, docker, postgresql, aws, redis, sql."
+}

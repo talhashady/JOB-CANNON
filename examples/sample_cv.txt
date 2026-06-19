@@ -1,0 +1,14 @@
+Talha R.
+Backend Engineer
+
+Summary
+Backend engineer with 4 years of experience building Python microservices.
+Email: someone@example.com  Phone: +92 300 1234567
+National ID: 42101-1234567-8
+
+Skills
+Python, FastAPI, Docker, PostgreSQL, Redis, AWS, SQL, Git, Linux
+
+Experience
+Python Developer - built REST APIs with FastAPI and PostgreSQL.
+Backend Engineer - containerized services with Docker and deployed on AWS.
