@@ -1,4 +1,4 @@
-# AI Career Assistant — Multi-Agent Orchestrator
+#  JOB CANNON
 
 A production-oriented **multi-agent system** that automates the job-search lifecycle:
 discovery → verification → matching → resume/cover-letter customization → (dry-run)
