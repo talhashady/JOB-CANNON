@@ -47,6 +47,7 @@ class Settings:
     openai_api_key: str = field(default_factory=lambda: os.environ.get("OPENAI_API_KEY", ""))
     orchestrator_model: str = field(default_factory=lambda: os.environ.get("ORCHESTRATOR_MODEL", "gpt-4o"))
     specialist_model: str = field(default_factory=lambda: os.environ.get("SPECIALIST_MODEL", "gpt-4o-mini"))
+    openai_base_url: str = field(default_factory=lambda: os.environ.get("OPENAI_BASE_URL", ""))
 
     database_url: str = field(default_factory=lambda: os.environ.get("DATABASE_URL", "sqlite:///career_assistant.db"))
 

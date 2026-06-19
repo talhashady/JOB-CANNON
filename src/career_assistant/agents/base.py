@@ -32,7 +32,10 @@ class LLMClient:
         try:
             from openai import OpenAI
 
-            self._client = OpenAI(api_key=self.settings.openai_api_key)
+            client_kwargs = {"api_key": self.settings.openai_api_key}
+            if self.settings.openai_base_url:
+                client_kwargs["base_url"] = self.settings.openai_base_url
+            self._client = OpenAI(**client_kwargs)
         except Exception as exc:  # pragma: no cover - depends on optional dep
             self.log.warning("OpenAI client unavailable (%s); using fallbacks.", exc)
             self._client = None
