@@ -18,6 +18,7 @@ class GeneratedResume(BaseModel):
 
 class GeneratedCoverLetter(BaseModel):
     job_id: str
+    subject: str = ""
     body: str = ""
     word_count: int = 0
 

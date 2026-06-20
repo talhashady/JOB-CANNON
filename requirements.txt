@@ -1,19 +1,23 @@
 # Core
 pydantic>=2.5
 python-dotenv>=1.0
+email-validator>=2.1
 
 # API gateway
 fastapi>=0.110
 uvicorn[standard]>=0.27
+python-multipart>=0.0.9
 
-# Job discovery (optional but recommended) - the scraping agent falls back to
-# sample data if this is not installed or the network is unavailable.
+# Postgres (optional) - uses SQLite by default; set DATABASE_URL to switch.
+psycopg[binary]>=3.1
+
+# Job discovery (optional) - falls back to sample data if absent.
 python-jobspy>=1.1.76
 
-# LLM (optional) - pipeline runs in deterministic mode without it.
+# LLM (optional) - works with OpenAI OR Gemini (OpenAI-compatible endpoint).
 openai>=1.30
 
-# CV parsing (optional) - falls back to plain-text parsing if absent.
+# CV parsing (optional) - falls back to plain text if absent.
 python-docx>=1.1
 pypdf>=4.0
 

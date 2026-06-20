@@ -7,7 +7,27 @@ from typing import List, Optional
 from ..models.application import Application, ApplicationStatus
 from ..models.job import Job
 from ..models.profile import UserProfile
+from ..models.user import User
 from .database import Database, get_database
+
+
+class UserRepository:
+    def __init__(self, db: Optional[Database] = None) -> None:
+        self.db = db or get_database()
+
+    def create(self, user: User) -> None:
+        self.db.execute(
+            "INSERT INTO users (id, email, payload, created_at) VALUES (?, ?, ?, ?)",
+            (user.id, str(user.email).lower(), user.model_dump_json(), user.created_at.isoformat()),
+        )
+
+    def get_by_email(self, email: str) -> Optional[User]:
+        rows = self.db.query("SELECT payload FROM users WHERE email = ?", (email.lower(),))
+        return User.model_validate_json(rows[0]["payload"]) if rows else None
+
+    def get_by_id(self, user_id: str) -> Optional[User]:
+        rows = self.db.query("SELECT payload FROM users WHERE id = ?", (user_id,))
+        return User.model_validate_json(rows[0]["payload"]) if rows else None
 
 
 class JobRepository:
@@ -63,13 +83,8 @@ class ApplicationRepository:
             "ON CONFLICT(id) DO UPDATE SET status=excluded.status, payload=excluded.payload, "
             "updated_at=excluded.updated_at",
             (
-                app.id,
-                app.user_id,
-                app.job_id,
-                app.status.value,
-                app.platform,
-                app.model_dump_json(),
-                app.updated_at.isoformat(),
+                app.id, app.user_id, app.job_id, app.status.value, app.platform,
+                app.model_dump_json(), app.updated_at.isoformat(),
             ),
         )
 
@@ -85,7 +100,6 @@ class ApplicationRepository:
         return [Application.model_validate_json(r["payload"]) for r in rows]
 
     def count_submitted_today(self, platform: str) -> int:
-        """Used by the rate-limit guardrail. Counts submitted/dry_run today (UTC)."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         rows = self.db.query(
             "SELECT COUNT(*) AS c FROM applications "

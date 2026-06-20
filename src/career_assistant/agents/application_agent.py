@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import uuid
+from typing import Optional
 
 from .base import BaseAgent
 from ..guardrails.rate_limiter import RateLimiter
@@ -24,12 +25,17 @@ class ApplicationAgent(BaseAgent):
         self.repo = repo or ApplicationRepository()
         self.rate_limiter = rate_limiter or RateLimiter(self.repo)
 
-    def run(self, user_id: str, job: Job, resume_text: str, cover_letter_text: str) -> Application:
+    def run(self, user_id: str, job: Job, resume_text: str, cover_letter_text: str,
+            match_score: Optional[float] = None) -> Application:
         app = Application(
             id=str(uuid.uuid4()),
             user_id=user_id,
             job_id=job.id,
             platform=job.source,
+            job_title=job.title,
+            company=job.company,
+            job_url=getattr(job, "url", None),
+            match_score=match_score,
             status=ApplicationStatus.QUEUED,
         )
 

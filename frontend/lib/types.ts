@@ -47,6 +47,11 @@ export interface Application {
   job_id: string;
   platform: string;
   status: string;
+  job_title?: string;
+  company?: string;
+  job_url?: string;
+  match_score?: number;
+  apply_email?: string;
   notes?: string[];
   created_at?: string;
 }
@@ -71,8 +76,21 @@ export interface PipelineResult {
   elapsed_s: number;
 }
 
+export interface PublicUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  created_at?: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type: string;
+  user: PublicUser;
+}
+
+// RunParams no longer includes user_id:
 export interface RunParams {
-  user_id: string;
   query: string;
   location: string;
   sites: string[];
@@ -80,4 +98,30 @@ export interface RunParams {
   is_remote: boolean;
   top_k: number;
   auto_apply: boolean;
+  apply_min_score?: number;
+}
+
+export interface AutoApplyParams {
+  query: string;
+  location: string;
+  sites: string[];
+  results_wanted: number;
+  is_remote: boolean;
+  min_score?: number;
+  max_applications: number;
+}
+
+export interface AutoApplyResult {
+  user_id: string;
+  query: string;
+  jobs_scraped: number;
+  jobs_verified: number;
+  min_score: number;
+  max_applications: number;
+  submitted_count: number;
+  dry_run: boolean;
+  daily_cap: number;
+  applied: { job: Job; match: MatchResult; application: Application }[];
+  skipped: { job: Job; reason: string }[];
+  elapsed_s: number;
 }

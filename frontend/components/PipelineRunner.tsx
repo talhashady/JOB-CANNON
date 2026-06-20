@@ -5,8 +5,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Play, Sparkles, AlertCircle, Upload } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PipelineResult } from "@/lib/types";
+import { useAuth } from "@/lib/auth";
 import AgentFlow from "./AgentFlow";
 import JobResultCard from "./JobResultCard";
+import CvDropzone from "./CvDropzone";
+import AuthModal from "./AuthModal";
 
 const SAMPLE_CV =
   "Backend engineer with 4 years of experience building Python microservices.\n" +
@@ -33,14 +36,19 @@ export default function PipelineRunner() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<PipelineResult | null>(null);
-
-  const userId = "web-user";
+  const [authOpen, setAuthOpen] = useState(false);
+  const [autoApply, setAutoApply] = useState(false);
+  const { user } = useAuth();
 
   function toggleSite(s: string) {
     setSites((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }
 
   async function run() {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
     setLoading(true);
     setError(null);
     setResult(null);
@@ -50,16 +58,15 @@ export default function PipelineRunner() {
       setTimeout(() => setStep(n), 350 * (i + 1))
     );
     try {
-      await api.createProfile(userId, cv, goals);
+      await api.createProfile(cv, goals);
       const res = await api.run({
-        user_id: userId,
         query,
         location,
         sites: sites.length ? sites : ["indeed"],
         results_wanted: 25,
         is_remote: remote,
         top_k: topK,
-        auto_apply: true,
+        auto_apply: autoApply,
       });
       setResult(res);
       setStep(9);
@@ -73,6 +80,7 @@ export default function PipelineRunner() {
 
   return (
     <section id="run" className="relative mx-auto max-w-5xl px-4 py-28">
+      <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
       <div className="mb-12 text-center">
         <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-neon-fuchsia">Live demo</p>
         <h2 className="font-display text-4xl font-bold sm:text-5xl">Run your pipeline</h2>
@@ -100,6 +108,10 @@ export default function PipelineRunner() {
             onChange={(e) => setGoals(e.target.value)}
             className="w-full rounded-xl border border-white/10 bg-ink-950/60 p-3 text-sm text-white/90 outline-none transition-colors focus:border-neon-violet/60"
           />
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-semibold text-white/80">...or upload your CV</p>
+            <CvDropzone careerGoals={goals} onParsed={(p) => { if (p?.skills?.length) setCv(p.skills.join(", ")); }} />
+          </div>
         </div>
 
         {/* search params */}
@@ -156,6 +168,15 @@ export default function PipelineRunner() {
               className="h-4 w-4 accent-neon-cyan"
             />
             Remote only
+          </label>
+          <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-white/80">
+            <input
+              type="checkbox"
+              checked={autoApply}
+              onChange={(e) => setAutoApply(e.target.checked)}
+              className="h-4 w-4 accent-neon-fuchsia"
+            />
+            Auto-apply by email to strong matches
           </label>
         </div>
       </div>

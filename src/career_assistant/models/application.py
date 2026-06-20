@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 class ApplicationStatus(str, Enum):
     DRAFT = "draft"
     QUEUED = "queued"
-    DRY_RUN = "dry_run"          # prepared but not actually submitted
+    DRY_RUN = "dry_run"
     SUBMITTED = "submitted"
     REJECTED_BY_GUARDRAIL = "rejected_by_guardrail"
     RATE_LIMITED = "rate_limited"
@@ -22,8 +22,6 @@ class ApplicationStatus(str, Enum):
 
 
 class MatchResult(BaseModel):
-    """Output of the matching agent for a single job."""
-
     job_id: str
     score: float = Field(..., ge=0.0, le=1.0)
     skill_score: float = 0.0
@@ -36,13 +34,18 @@ class MatchResult(BaseModel):
 
 
 class Application(BaseModel):
-    """A tracked application record."""
-
     id: str
     user_id: str
     job_id: str
     status: ApplicationStatus = ApplicationStatus.DRAFT
     platform: str = ""
+
+    # Display fields so the tracker UI doesn't need a second lookup:
+    job_title: str = ""
+    company: str = ""
+    job_url: Optional[str] = None
+    match_score: Optional[float] = None
+
     resume_ref: Optional[str] = None
     cover_letter_ref: Optional[str] = None
     notes: List[str] = Field(default_factory=list)

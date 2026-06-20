@@ -6,6 +6,7 @@ parser itself only does best-effort structured extraction with no network calls.
 """
 from __future__ import annotations
 
+import io
 import re
 from pathlib import Path
 from typing import List
@@ -93,3 +94,23 @@ def parse_cv(user_id: str, cv_text: str, career_goals: str = "") -> UserProfile:
         career_goals=career_goals,
         raw_cv_text=cv_text,
     )
+
+
+def extract_text_from_bytes(filename: str, data: bytes) -> str:
+    """Extract text from uploaded CV bytes (.pdf/.docx/.txt/.md)."""
+    suffix = Path(filename).suffix.lower()
+    if suffix == ".pdf":
+        try:
+            from pypdf import PdfReader
+            reader = PdfReader(io.BytesIO(data))
+            return "\n".join((page.extract_text() or "") for page in reader.pages)
+        except Exception:
+            pass
+    if suffix == ".docx":
+        try:
+            from docx import Document
+            return "\n".join(par.text for par in Document(io.BytesIO(data)).paragraphs)
+        except Exception:
+            pass
+    return data.decode("utf-8", errors="ignore")
+
