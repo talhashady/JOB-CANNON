@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
+import ErrorLogger from "@/components/ErrorLogger";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const grotesk = Space_Grotesk({
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${inter.variable} ${grotesk.variable}`}>
       <body className="min-h-screen font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>
+        <ErrorLogger />
       </body>
     </html>
   );
