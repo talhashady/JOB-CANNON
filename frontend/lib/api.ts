@@ -1,13 +1,19 @@
 import type {
   Application,
   AuthResponse,
+  AutoApplyParams,
   AutoApplyResult,
+  HealthResponse,
   PipelineResult,
   PublicUser,
   RunParams,
+  UserProfile,
 } from "./types";
+import { logError } from "./logger";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
+// Trailing slash stripped so `${BASE}${path}` never produces a double slash.
+const BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+
 const TOKEN_KEY = "careeros_token";
 
 function getToken(): string | null {
@@ -21,32 +27,48 @@ function clearToken(): void {
   if (typeof window !== "undefined") window.localStorage.removeItem(TOKEN_KEY);
 }
 
-function authHeaders(extra?: HeadersInit): HeadersInit {
-  const token = getToken();
-  return {
-    ...(extra || {}),
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-  };
-}
+/**
+ * Core request helper.
+ * - Attaches the Bearer token automatically.
+ * - Sets JSON content-type only for non-FormData bodies (so file uploads work).
+ * - On ANY failure (network or HTTP) it logs the RAW error with full context
+ *   (operation + url + raw error) and rethrows the raw error - nothing hidden.
+ */
+async function http<T>(operation: string, path: string, init?: RequestInit): Promise<T> {
+  const url = `${BASE}${path}`;
+  const method = (init && init.method) || "GET";
+  const where = `${method} ${url}`;
 
-async function parseError(res: Response): Promise<string> {
-  let detail = res.statusText;
-  try {
-    const body = await res.json();
-    detail = body.detail ?? detail;
-  } catch {
-    /* ignore */
+  const headers: Record<string, string> = { ...((init && (init.headers as Record<string, string>)) || {}) };
+  const isForm = typeof FormData !== "undefined" && init?.body instanceof FormData;
+  if (init?.body && !isForm && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
   }
-  return `${res.status}: ${detail}`;
-}
+  const token = getToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-async function http<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${BASE}${path}`, {
-    ...init,
-    headers: authHeaders({ "Content-Type": "application/json", ...(init?.headers || {}) }),
-    cache: "no-store",
-  });
-  if (!res.ok) throw new Error(await parseError(res));
+  let res: Response;
+  try {
+    res = await fetch(url, { ...init, headers, cache: "no-store" });
+  } catch (err) {
+    // Network-level failure: DNS, CORS, backend asleep, wrong/missing API URL, offline.
+    logError(`${operation} (network)`, where, err);
+    throw err instanceof Error ? err : new Error(String(err));
+  }
+
+  if (!res.ok) {
+    let detail = res.statusText;
+    try {
+      const body = await res.json();
+      if (body && body.detail) detail = typeof body.detail === "string" ? body.detail : JSON.stringify(body.detail);
+    } catch {
+      /* response had no JSON body */
+    }
+    const error = new Error(`HTTP ${res.status} ${detail}`);
+    logError(operation, where, error);
+    throw error;
+  }
+
   return res.json() as Promise<T>;
 }
 
@@ -56,48 +78,40 @@ export const api = {
   setToken,
   clearToken,
 
-  health: () =>
-    http<{ status: string; llm_enabled: boolean; live_apply: boolean; smtp_configured: boolean }>(
-      "/health"
-    ),
+  health: () => http<HealthResponse>("Health check", "/health"),
 
+  // --- auth ---
   signup: (body: { email: string; password: string; full_name: string }) =>
-    http<AuthResponse>("/auth/signup", { method: "POST", body: JSON.stringify(body) }),
+    http<AuthResponse>("Sign up", "/auth/signup", { method: "POST", body: JSON.stringify(body) }),
 
   login: (body: { email: string; password: string }) =>
-    http<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify(body) }),
+    http<AuthResponse>("Log in", "/auth/login", { method: "POST", body: JSON.stringify(body) }),
 
-  me: () => http<PublicUser>("/auth/me"),
+  me: () => http<PublicUser>("Load current user", "/auth/me"),
 
+  // --- profile ---
   createProfile: (cv_text: string, career_goals = "") =>
-    http("/profiles", { method: "POST", body: JSON.stringify({ cv_text, career_goals }) }),
+    http<UserProfile>("Save profile", "/profiles", {
+      method: "POST",
+      body: JSON.stringify({ cv_text, career_goals }),
+    }),
 
-  uploadCv: async (file: File, career_goals = "") => {
+  uploadCv: (file: File, career_goals = "") => {
     const form = new FormData();
     form.append("file", file);
     form.append("career_goals", career_goals);
-    const res = await fetch(`${BASE}/profiles/upload`, {
-      method: "POST",
-      headers: authHeaders(), // do NOT set Content-Type; browser adds the multipart boundary
-      body: form,
-      cache: "no-store",
-    });
-    if (!res.ok) throw new Error(await parseError(res));
-    return res.json();
+    return http<UserProfile>("Upload CV", "/profiles/upload", { method: "POST", body: form });
   },
 
+  // --- pipeline ---
   run: (params: RunParams) =>
-    http<PipelineResult>("/run", { method: "POST", body: JSON.stringify(params) }),
+    http<PipelineResult>("Run pipeline", "/run", { method: "POST", body: JSON.stringify(params) }),
 
-  autoApply: (params: {
-    query: string;
-    location: string;
-    sites: string[];
-    results_wanted: number;
-    is_remote: boolean;
-    min_score: number;
-    max_applications: number;
-  }) => http<AutoApplyResult>("/auto-apply", { method: "POST", body: JSON.stringify(params) }),
+  autoApply: (params: AutoApplyParams) =>
+    http<AutoApplyResult>("Auto-apply", "/auto-apply", {
+      method: "POST",
+      body: JSON.stringify(params),
+    }),
 
-  applicationsMe: () => http<Application[]>("/applications/me"),
+  applicationsMe: () => http<Application[]>("Load applications", "/applications/me"),
 };

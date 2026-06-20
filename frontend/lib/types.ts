@@ -30,6 +30,7 @@ export interface GeneratedResume {
 
 export interface GeneratedCoverLetter {
   body: string;
+  subject?: string;
 }
 
 export interface SkillGapReport {
@@ -41,6 +42,37 @@ export interface InterviewPrep {
   questions: string[];
 }
 
+// --- auth -------------------------------------------------------------------
+export interface PublicUser {
+  id: string;
+  email: string;
+  full_name?: string;
+  created_at?: string;
+}
+
+export interface AuthResponse {
+  access_token: string;
+  token_type?: string;
+  user: PublicUser;
+}
+
+// --- profile ----------------------------------------------------------------
+export interface UserProfile {
+  user_id: string;
+  full_name?: string;
+  email?: string | null;
+  headline?: string;
+  summary?: string;
+  skills: string[];
+  years_experience: number;
+  titles: string[];
+  locations_preferred?: string[];
+  remote_ok?: boolean;
+  career_goals?: string;
+  raw_cv_text?: string;
+}
+
+// --- applications -----------------------------------------------------------
 export interface Application {
   id: string;
   user_id: string;
@@ -51,9 +83,11 @@ export interface Application {
   company?: string;
   job_url?: string;
   match_score?: number;
+  apply_method?: string;
   apply_email?: string;
   notes?: string[];
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface Recommendation {
@@ -72,24 +106,11 @@ export interface PipelineResult {
   jobs_scraped: number;
   jobs_verified: number;
   recommendations: Recommendation[];
-  agent_chain: { agent: string; note: string; [k: string]: unknown }[];
+  agent_chain: { agent: string; summary?: string; note?: string; [k: string]: unknown }[];
   elapsed_s: number;
 }
 
-export interface PublicUser {
-  id: string;
-  email: string;
-  full_name?: string;
-  created_at?: string;
-}
-
-export interface AuthResponse {
-  access_token: string;
-  token_type: string;
-  user: PublicUser;
-}
-
-// RunParams no longer includes user_id:
+// --- requests ---------------------------------------------------------------
 export interface RunParams {
   query: string;
   location: string;
@@ -98,7 +119,6 @@ export interface RunParams {
   is_remote: boolean;
   top_k: number;
   auto_apply: boolean;
-  apply_min_score?: number;
 }
 
 export interface AutoApplyParams {
@@ -108,20 +128,21 @@ export interface AutoApplyParams {
   results_wanted: number;
   is_remote: boolean;
   min_score?: number;
-  max_applications: number;
+  max_applications?: number;
 }
 
 export interface AutoApplyResult {
-  user_id: string;
-  query: string;
-  jobs_scraped: number;
-  jobs_verified: number;
-  min_score: number;
-  max_applications: number;
-  submitted_count: number;
-  dry_run: boolean;
-  daily_cap: number;
-  applied: { job: Job; match: MatchResult; application: Application }[];
-  skipped: { job: Job; reason: string }[];
-  elapsed_s: number;
+  attempted: number;
+  email_sent: number;
+  dry_run: number;
+  no_contact: number;
+  applications: Application[];
+}
+
+export interface HealthResponse {
+  status: string;
+  llm_enabled: boolean;
+  live_apply: boolean;
+  smtp_configured?: boolean;
+  default_sites?: string[];
 }
