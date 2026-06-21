@@ -1,23 +1,27 @@
 # Core
 pydantic>=2.5
 python-dotenv>=1.0
-email-validator>=2.1
 
 # API gateway
 fastapi>=0.110
 uvicorn[standard]>=0.27
+# Required by FastAPI/Starlette to parse multipart/form-data (the CV upload
+# endpoint POST /profiles/upload). Without it that endpoint 500s.
 python-multipart>=0.0.9
 
-# Postgres (optional) - uses SQLite by default; set DATABASE_URL to switch.
+# Persistence - managed Postgres driver (Neon/Supabase). WITHOUT this the app
+# detects the postgres:// URL but cannot use it, silently falls back to
+# in-memory SQLite, and ALL accounts/applications are wiped on every restart.
 psycopg[binary]>=3.1
 
-# Job discovery (optional) - falls back to sample data if absent.
+# Job discovery (optional but recommended) - the scraping agent falls back to
+# sample data if this is not installed or the network is unavailable.
 python-jobspy>=1.1.76
 
-# LLM (optional) - works with OpenAI OR Gemini (OpenAI-compatible endpoint).
+# LLM (optional) - pipeline runs in deterministic mode without it.
 openai>=1.30
 
-# CV parsing (optional) - falls back to plain text if absent.
+# CV parsing (optional) - falls back to plain-text parsing if absent.
 python-docx>=1.1
 pypdf>=4.0
 

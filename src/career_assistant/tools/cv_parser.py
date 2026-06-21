@@ -50,7 +50,10 @@ _EXTRACT_USER_TEMPLATE = (
     "Read the CV between the markers and return a STRICT JSON object with exactly these keys:\n"
     "- full_name: the candidate's name as a string, or an empty string if not present\n"
     "- headline: a short professional headline (e.g. job role + focus), or empty string\n"
-    "- summary: a 2-3 sentence professional summary grounded strictly in the CV, or empty string\n"
+    "- summary: REQUIRED, never empty. A polished 3-5 sentence professional summary in third "
+    "person, grounded strictly in the CV, covering: seniority/current role, total years of "
+    "experience, the strongest skills/tools, industries or domains worked in, and 1-2 notable "
+    "achievements or responsibilities. Write it so it can be shown to the candidate as-is.\n"
     "- skills: array of concrete skills, tools, certifications, or competencies as lowercase "
     "strings, deduplicated; use an empty array if none are stated\n"
     "- years_experience: total years of professional experience as a number; 0 if unknown\n"
@@ -211,6 +214,27 @@ def _llm_extract(cv_text: str, llm: Optional[Any] = None) -> Optional[dict]:
     return data
 
 
+def _fallback_summary(
+    full_name: str,
+    headline: str,
+    titles: List[str],
+    years: float,
+    skills: List[str],
+) -> str:
+    """Build a readable summary from extracted fields when the LLM gives none."""
+    who = (full_name or "").strip() or "This candidate"
+    role = headline or (titles[0] if titles else "professional")
+    lead = f"{who} - {headline}" if headline else f"{who} is a {role.lower()}"
+    if years:
+        lead += f" with {years:g}+ years of experience"
+    parts: List[str] = [lead.rstrip(".") + "."]
+    if titles:
+        parts.append("Roles held: " + ", ".join(titles[:4]) + ".")
+    if skills:
+        parts.append("Core skills: " + ", ".join(skills[:10]) + ".")
+    return " ".join(parts)
+
+
 def parse_cv(
     user_id: str,
     cv_text: str,
@@ -232,6 +256,7 @@ def parse_cv(
     locations: List[str] = []
 
     data = _llm_extract(cv_text, llm=llm)
+    used_llm = bool(data)
     if data:
         full_name = _as_str(data.get("full_name")) or full_name
         headline = _as_str(data.get("headline")) or headline
@@ -248,6 +273,14 @@ def parse_cv(
             "LLM CV extraction: %d skill(s), %d title(s), %.1f year(s).",
             len(skills), len(titles), years,
         )
+
+    # The CV box in the UI is filled from `summary`, so it must never be blank.
+    # If the LLM gave no summary (or ran in offline/regex mode), synthesize one
+    # from the extracted fields.
+    if not summary:
+        summary = _fallback_summary(full_name, headline, titles, years, skills)
+        if used_llm:
+            log.info("LLM returned no summary; used synthesized fallback summary.")
 
     return UserProfile(
         user_id=user_id,

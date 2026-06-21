@@ -6,10 +6,29 @@ adding a deterministic fallback so the whole system runs offline. Subclasses imp
 """
 from __future__ import annotations
 
+import threading
+import time
 from typing import Any, List, Optional
 
 from ..config import Settings, get_settings
 from ..logging_config import get_logger
+
+# Process-wide throttle so bursts of agent calls don't trip provider rate limits
+# (e.g. Gemini free tier 429 RESOURCE_EXHAUSTED). Guarded by a lock.
+_LLM_THROTTLE_LOCK = threading.Lock()
+_LLM_LAST_CALL_AT = 0.0
+
+
+def _throttle(min_interval_s: float) -> None:
+    """Block until at least `min_interval_s` has elapsed since the last LLM call."""
+    global _LLM_LAST_CALL_AT
+    if min_interval_s <= 0:
+        return
+    with _LLM_THROTTLE_LOCK:
+        wait = min_interval_s - (time.monotonic() - _LLM_LAST_CALL_AT)
+        if wait > 0:
+            time.sleep(wait)
+        _LLM_LAST_CALL_AT = time.monotonic()
 
 
 class LLMClient:
@@ -32,8 +51,12 @@ class LLMClient:
         try:
             from openai import OpenAI
 
-            client_kwargs = {"api_key": self.settings.openai_api_key}
+            client_kwargs = {
+                "api_key": self.settings.openai_api_key,
+                "max_retries": self.settings.llm_max_retries,
+            }
             if self.settings.openai_base_url:
+                # Route through an OpenAI-compatible endpoint (e.g. Google Gemini).
                 client_kwargs["base_url"] = self.settings.openai_base_url
             self._client = OpenAI(**client_kwargs)
         except Exception as exc:  # pragma: no cover - depends on optional dep
@@ -46,6 +69,7 @@ class LLMClient:
         client = self._ensure_client()
         if client is None:
             return None
+        _throttle(self.settings.llm_min_interval_s)
         try:
             resp = client.chat.completions.create(
                 model=model,

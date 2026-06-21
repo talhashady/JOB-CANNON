@@ -9,7 +9,7 @@ from __future__ import annotations
 import sqlite3
 import threading
 from functools import lru_cache
-from typing import Optional
+from typing import Any, Optional
 
 from ..config import get_settings
 from ..logging_config import get_logger
@@ -79,13 +79,16 @@ class Database:
 
 
 @lru_cache(maxsize=1)
-def get_database(path: Optional[str] = None) -> Database:
+def get_database(path: Optional[str] = None) -> Any:
     settings = get_settings()
     if not settings.is_sqlite and path is None:
-        # Production would branch to a Postgres implementation here.
-        log.warning(
-            "Non-sqlite DATABASE_URL set (%s) but only the SQLite backend is bundled; "
-            "falling back to local sqlite file.",
-            settings.database_url,
-        )
+        try:
+            from .postgres import PostgresDatabase
+            return PostgresDatabase(settings.database_url)
+        except Exception as exc:
+            log.warning(
+                "Non-sqlite DATABASE_URL set (%s) but failed to initialize Postgres; "
+                "falling back to local sqlite file. Error: %s",
+                settings.database_url, exc
+            )
     return Database(path or settings.sqlite_path)

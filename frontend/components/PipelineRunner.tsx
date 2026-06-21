@@ -19,6 +19,14 @@ const SAMPLE_CV =
 
 const SITES = ["indeed", "linkedin", "glassdoor", "google", "zip_recruiter"];
 
+type Arrangement = "any" | "remote" | "hybrid" | "onsite";
+const WORK_ARRANGEMENTS: { value: Arrangement; label: string }[] = [
+  { value: "any", label: "Any" },
+  { value: "remote", label: "Remote" },
+  { value: "hybrid", label: "Hybrid" },
+  { value: "onsite", label: "On-site" },
+];
+
 // Labels used for the live "agent started" log lines (mirrors the AgentFlow stepper).
 const AGENT_STEPS = [
   "Scraper Agent",
@@ -54,8 +62,9 @@ export default function PipelineRunner() {
   const [query, setQuery] = useState("python developer");
   const [location, setLocation] = useState("Remote");
   const [sites, setSites] = useState<string[]>(["indeed"]);
-  const [remote, setRemote] = useState(true);
-  const [topK, setTopK] = useState(5);
+  const [workArrangement, setWorkArrangement] = useState<Arrangement>("remote");
+  const [jobCount, setJobCount] = useState(80);
+  const [topK, setTopK] = useState(25);
   const [autoApply, setAutoApply] = useState(false);
 
   const [loading, setLoading] = useState(false);
@@ -69,8 +78,15 @@ export default function PipelineRunner() {
   }
 
   function applyParsedProfile(p: UserProfile) {
-    if (p.raw_cv_text && p.raw_cv_text.trim()) setCv(p.raw_cv_text);
-    else if (p.skills && p.skills.length) setCv(p.skills.join(", "));
+    // Fill the "Your CV" box with the LLM-generated summary of the whole CV.
+    if (p.summary && p.summary.trim()) {
+      setCv(p.summary.trim());
+      logSuccess("CV summary loaded into the CV box");
+    } else if (p.raw_cv_text && p.raw_cv_text.trim()) {
+      setCv(p.raw_cv_text);
+    } else if (p.skills && p.skills.length) {
+      setCv(p.skills.join(", "));
+    }
     setGoals(deriveGoals(p));
   }
 
@@ -87,11 +103,25 @@ export default function PipelineRunner() {
       return;
     }
 
+    if (!cv.trim()) {
+      setError("Please add your CV (paste text or upload a file) before running.");
+      logActivity(
+        "error",
+        "Run blocked - empty CV",
+        "What it tried : start pipeline run\nWhere         : PipelineRunner.run()\nRaw error     : CV text is empty (the backend requires cv_text >= 1 character)."
+      );
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setResult(null);
     setStep(0);
-    logStep(`Pipeline run started - query: "${query}", location: "${location}", sites: ${(sites.length ? sites : ["indeed"]).join(", ")}`);
+    logStep(
+      `Pipeline run started - query: "${query}", location: "${location}", ` +
+        `scan ${jobCount}/board on ${(sites.length ? sites : ["indeed"]).join(", ")}` +
+        (autoApply ? `, auto-apply to top ${topK}` : "")
+    );
 
     // Optimistic stepper + live "agent started" logs while the request is in flight.
     const timers = AGENT_STEPS.map((name, i) =>
@@ -111,8 +141,9 @@ export default function PipelineRunner() {
         query,
         location,
         sites: sites.length ? sites : ["indeed"],
-        results_wanted: 25,
-        is_remote: remote,
+        results_wanted: jobCount,
+        is_remote: workArrangement === "remote",
+        work_arrangement: workArrangement,
         top_k: topK,
         auto_apply: autoApply,
       });
@@ -196,17 +227,31 @@ export default function PipelineRunner() {
               />
             </div>
             <div>
-              <label className="mb-2 block text-sm font-semibold text-white/80">Top matches: {topK}</label>
+              <label className="mb-2 block text-sm font-semibold text-white/80">
+                {autoApply ? "Apply to top" : "Top matches"}: {topK}
+              </label>
               <input
                 type="range"
                 min={1}
-                max={10}
+                max={50}
                 value={topK}
                 onChange={(e) => setTopK(Number(e.target.value))}
                 className="mt-3 w-full accent-neon-fuchsia"
               />
             </div>
           </div>
+          <label className="mb-2 mt-4 block text-sm font-semibold text-white/80">
+            Jobs to scan per board: {jobCount}
+          </label>
+          <input
+            type="range"
+            min={10}
+            max={250}
+            step={10}
+            value={jobCount}
+            onChange={(e) => setJobCount(Number(e.target.value))}
+            className="w-full accent-neon-cyan"
+          />
           <label className="mb-2 mt-4 block text-sm font-semibold text-white/80">Job boards</label>
           <div className="flex flex-wrap gap-2">
             {SITES.map((s) => (
@@ -224,15 +269,23 @@ export default function PipelineRunner() {
               </button>
             ))}
           </div>
-          <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm text-white/80">
-            <input
-              type="checkbox"
-              checked={remote}
-              onChange={(e) => setRemote(e.target.checked)}
-              className="h-4 w-4 accent-neon-cyan"
-            />
-            Remote only
-          </label>
+          <label className="mb-2 mt-4 block text-sm font-semibold text-white/80">Job type</label>
+          <div className="flex flex-wrap gap-2">
+            {WORK_ARRANGEMENTS.map((w) => (
+              <button
+                key={w.value}
+                onClick={() => setWorkArrangement(w.value)}
+                className={
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition-colors " +
+                  (workArrangement === w.value
+                    ? "bg-gradient-to-r from-neon-violet to-neon-cyan text-white"
+                    : "glass text-white/60 hover:text-white")
+                }
+              >
+                {w.label}
+              </button>
+            ))}
+          </div>
           <label className="mt-3 flex cursor-pointer items-center gap-2 text-sm text-white/80">
             <input
               type="checkbox"

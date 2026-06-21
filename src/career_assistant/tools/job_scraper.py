@@ -29,14 +29,46 @@ def _to_float(value) -> float | None:
 
 def scrape_jobs(request: JobSearchRequest) -> List[Job]:
     """Scrape jobs for a request. Returns normalized Job models."""
+    jobs = None
     try:
-        return _scrape_with_jobspy(request)
+        jobs = _scrape_with_jobspy(request)
     except ImportError:
         log.warning("python-jobspy not installed; returning sample jobs. "
                     "Install with `pip install python-jobspy` for live data.")
     except Exception as exc:  # network / board errors -> degrade gracefully
         log.warning("JobSpy scrape failed (%s); returning sample jobs.", exc)
-    return _sample_jobs(request)
+    if jobs is None:
+        jobs = _sample_jobs(request)
+    return _filter_by_arrangement(jobs, getattr(request, "work_arrangement", "any"))
+
+
+_REMOTE_HINTS = ("remote", "work from home", "work-from-home", "wfh", "telecommute", "telework")
+_HYBRID_HINTS = ("hybrid", "flexible location", "partially remote")
+_ONSITE_HINTS = ("on-site", "on site", "onsite", "in office", "in-office")
+
+
+def _filter_by_arrangement(jobs: List[Job], arrangement: str) -> List[Job]:
+    """Filter jobs by work arrangement (remote/hybrid/onsite). 'any' is a no-op.
+
+    JobSpy has no native hybrid/onsite filter, so we infer from the title,
+    location and description text plus the board's own is_remote flag.
+    """
+    arr = (arrangement or "any").strip().lower()
+    if arr == "any":
+        return jobs
+    out: List[Job] = []
+    for j in jobs:
+        hay = f"{j.title} {j.location} {j.description}".lower()
+        is_remote = j.is_remote or any(h in hay for h in _REMOTE_HINTS)
+        is_hybrid = any(h in hay for h in _HYBRID_HINTS)
+        if arr == "remote" and is_remote and not is_hybrid:
+            out.append(j)
+        elif arr == "hybrid" and is_hybrid:
+            out.append(j)
+        elif arr == "onsite" and not is_remote and not is_hybrid:
+            out.append(j)
+    log.info("Work-arrangement filter '%s': %d -> %d jobs.", arr, len(jobs), len(out))
+    return out
 
 
 def _scrape_with_jobspy(request: JobSearchRequest) -> List[Job]:

@@ -117,6 +117,7 @@ export interface RunParams {
   sites: string[];
   results_wanted: number;
   is_remote: boolean;
+  work_arrangement: string; // any | remote | hybrid | onsite
   top_k: number;
   auto_apply: boolean;
 }
@@ -127,6 +128,7 @@ export interface AutoApplyParams {
   sites: string[];
   results_wanted: number;
   is_remote: boolean;
+  work_arrangement: string; // any | remote | hybrid | onsite
   min_score?: number;
   max_applications?: number;
 }

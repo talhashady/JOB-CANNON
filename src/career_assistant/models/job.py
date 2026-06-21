@@ -17,12 +17,20 @@ class JobSearchRequest(BaseModel):
     results_wanted: int = Field(default=25, ge=1, le=1000)  # Indeed/JobSpy hard cap is 1000
     hours_old: Optional[int] = Field(default=None, ge=1, description="Only jobs posted within N hours.")
     is_remote: bool = False
+    # any | remote | hybrid | onsite - applied as a post-scrape filter.
+    work_arrangement: str = Field(default="any", description="any | remote | hybrid | onsite")
     country: str = Field(default="USA", description="JobSpy 'country_indeed' value.")
 
     @field_validator("results_wanted")
     @classmethod
     def _cap(cls, v: int) -> int:
         return min(v, 1000)
+
+    @field_validator("work_arrangement")
+    @classmethod
+    def _norm_arrangement(cls, v: str) -> str:
+        val = (v or "any").strip().lower()
+        return val if val in {"any", "remote", "hybrid", "onsite"} else "any"
 
 
 class Job(BaseModel):

@@ -15,6 +15,7 @@ def test_llm_client_initialization_with_base_url():
         client._ensure_client()
         mock_openai.assert_called_once_with(
             api_key="test-key",
+            max_retries=5,
             base_url="https://custom.api.endpoint/v1"
         )
 
@@ -29,5 +30,6 @@ def test_llm_client_initialization_without_base_url():
         client = LLMClient(settings)
         client._ensure_client()
         mock_openai.assert_called_once_with(
-            api_key="test-key"
+            api_key="test-key",
+            max_retries=5
         )
