@@ -36,6 +36,13 @@ def submit_application(
     settings = get_settings()
     detail = {"job_id": job.id, "company": job.company, "url": job.url}
 
+    # Dynamically register SMTP email backend if configured and no other backend is set
+    global _BACKEND
+    if _BACKEND is None:
+        from .email_apply import smtp_configured, email_submission_backend
+        if smtp_configured():
+            register_submission_backend(email_submission_backend)
+
     if not settings.allow_live_apply or _BACKEND is None:
         log.info("DRY RUN: prepared application for '%s' at %s (not submitted).",
                  job.title, job.company)

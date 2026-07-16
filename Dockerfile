@@ -6,9 +6,28 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# System deps kept minimal; add build-essential only if a wheel needs compiling.
+# Install system libraries for Playwright Chromium
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libnss3 \
+    libnspr4 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2 \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY pyproject.toml requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Install chromium binary for Playwright
+RUN playwright install chromium
 
 COPY . .
 RUN pip install --no-cache-dir -e .

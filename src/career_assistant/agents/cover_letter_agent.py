@@ -45,11 +45,11 @@ class CoverLetterAgent(BaseAgent):
                     job_id=job.id, subject=letter.subject,
                     body=generated.strip(), word_count=len(generated.split()),
                 )
-                if check_factual_accuracy(candidate.body, profile).passed:
+                if check_factual_accuracy(candidate.body, profile, job_title=job.title, company=job.company).passed:
                     return candidate
                 self.log.warning("LLM cover letter failed factual guardrail; using template.")
 
-        factual = check_factual_accuracy(letter.body, profile)
+        factual = check_factual_accuracy(letter.body, profile, job_title=job.title, company=job.company)
         if not factual.passed:
             self.log.warning("Cover letter factual guardrail tripped: %s", factual.issues)
             letter.body = letter.body.replace(

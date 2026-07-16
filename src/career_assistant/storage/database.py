@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import sqlite3
 import threading
-from functools import lru_cache
 from typing import Any, Optional
 
 from ..config import get_settings
 from ..logging_config import get_logger
+from .exceptions import DatabaseUnavailable
 
 log = get_logger(__name__)
 
@@ -78,17 +78,47 @@ class Database:
         self._conn.close()
 
 
-@lru_cache(maxsize=1)
+# In-memory cache for the Postgres connection. If Postgres fails, it is set to None
+# and re-attempted on subsequent calls, fulfilling connection recovery.
+_postgres_db: Optional[Any] = None
+_db_lock = threading.Lock()
+
+# Startup SQLite warning logging flag
+_logged_sqlite_warning = False
+
+
 def get_database(path: Optional[str] = None) -> Any:
+    global _postgres_db, _logged_sqlite_warning
     settings = get_settings()
-    if not settings.is_sqlite and path is None:
+
+    # If SQLite configured or custom path specified, use local SQLite
+    if settings.is_sqlite or path is not None:
+        if not _logged_sqlite_warning and path is None:
+            log.warning("No Postgres DATABASE_URL configured. Running in local/dev mode with SQLite database.")
+            _logged_sqlite_warning = True
+        return Database(path or settings.sqlite_path)
+
+    # Postgres is configured - do NOT silently fallback to SQLite
+    with _db_lock:
+        if _postgres_db is not None:
+            try:
+                # Ensure connection is active and healthy
+                _postgres_db._ensure()
+                return _postgres_db
+            except Exception as exc:
+                log.warning("Existing Postgres connection failed health check. Retrying connection. Error: %s", exc)
+                try:
+                    _postgres_db.close()
+                except Exception:
+                    pass
+                _postgres_db = None
+
+        # Attempt to establish new connection to Postgres
         try:
             from .postgres import PostgresDatabase
-            return PostgresDatabase(settings.database_url)
+            db = PostgresDatabase(settings.database_url)
+            _postgres_db = db
+            return db
         except Exception as exc:
-            log.warning(
-                "Non-sqlite DATABASE_URL set (%s) but failed to initialize Postgres; "
-                "falling back to local sqlite file. Error: %s",
-                settings.database_url, exc
-            )
-    return Database(path or settings.sqlite_path)
+            log.error("Failed to connect to Postgres: %s", exc)
+            raise DatabaseUnavailable("Database temporarily unavailable") from exc

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -48,7 +48,7 @@ class Job(BaseModel):
     currency: Optional[str] = None
     is_remote: bool = False
     date_posted: Optional[str] = None
-    scraped_at: datetime = Field(default_factory=datetime.utcnow)
+    scraped_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     # Set by the verification agent.
     verified: bool = False

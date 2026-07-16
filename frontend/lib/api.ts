@@ -18,18 +18,19 @@ const TOKEN_KEY = "careeros_token";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(TOKEN_KEY);
+  // Dummy token to trigger auth check on mount in auth.tsx (cookies are used for actual auth)
+  return "session";
 }
 function setToken(token: string): void {
-  if (typeof window !== "undefined") window.localStorage.setItem(TOKEN_KEY, token);
+  // No-op: token is stored in httpOnly cookie
 }
 function clearToken(): void {
-  if (typeof window !== "undefined") window.localStorage.removeItem(TOKEN_KEY);
+  // Clear cookie on backend via POST logout
+  fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
 }
 
 /**
  * Core request helper.
- * - Attaches the Bearer token automatically.
  * - Sets JSON content-type only for non-FormData bodies (so file uploads work).
  * - On ANY failure (network or HTTP) it logs the RAW error with full context
  *   (operation + url + raw error) and rethrows the raw error - nothing hidden.
@@ -44,12 +45,10 @@ async function http<T>(operation: string, path: string, init?: RequestInit): Pro
   if (init?.body && !isForm && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
   }
-  const token = getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
 
   let res: Response;
   try {
-    res = await fetch(url, { ...init, headers, cache: "no-store" });
+    res = await fetch(url, { ...init, headers, credentials: "include", cache: "no-store" });
   } catch (err) {
     // Network-level failure: DNS, CORS, backend asleep, wrong/missing API URL, offline.
     logError(`${operation} (network)`, where, err);
@@ -105,7 +104,10 @@ export const api = {
 
   // --- pipeline ---
   run: (params: RunParams) =>
-    http<PipelineResult>("Run pipeline", "/run", { method: "POST", body: JSON.stringify(params) }),
+    http<{ task_id: string }>("Run pipeline", "/run", { method: "POST", body: JSON.stringify(params) }),
+
+  pollTask: (taskId: string) =>
+    http<{ status: string; result: PipelineResult | null; error: string | null }>("Poll task status", `/run/${taskId}`),
 
   autoApply: (params: AutoApplyParams) =>
     http<AutoApplyResult>("Auto-apply", "/auto-apply", {

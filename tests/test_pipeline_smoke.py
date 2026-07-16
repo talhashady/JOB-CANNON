@@ -28,3 +28,16 @@ def test_build_profile_scrubs_pii():
     assert "42101-1234567-8" not in profile.raw_cv_text
     assert profile.years_experience == 5
     assert "python" in profile.skills
+
+
+def test_years_of_experience_regex_fallback():
+    from career_assistant.tools.cv_parser import _extract_years
+    cv_text = (
+        "Acme Corp was founded 25 years ago in the tech sector.\n"
+        "Jane Doe is a software developer with 4.5 years of experience working as a backend engineer.\n"
+        "She also spent 2 years in Python development."
+    )
+    years = _extract_years(cv_text)
+    # It should extract 4.5 as the candidate's experience, ignoring the 25.0 company age
+    assert years == 4.5
+

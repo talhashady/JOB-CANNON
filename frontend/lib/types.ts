@@ -134,12 +134,20 @@ export interface AutoApplyParams {
 }
 
 export interface AutoApplyResult {
-  attempted: number;
-  email_sent: number;
-  dry_run: number;
-  no_contact: number;
-  applications: Application[];
+  user_id: string;
+  query: string;
+  jobs_scraped: number;
+  jobs_verified: number;
+  min_score: number;
+  max_applications: number;
+  submitted_count: number;
+  dry_run: boolean;
+  daily_cap: number;
+  applied: { job: Job; match: MatchResult; application: Application }[];
+  skipped: { job: Job; reason: string }[];
+  elapsed_s: number;
 }
+
 
 export interface HealthResponse {
   status: string;

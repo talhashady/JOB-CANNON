@@ -21,7 +21,7 @@ class ResumeAgent(BaseAgent):
         resume = resume_builder.generate_resume(profile, job)
 
         # Output guardrails.
-        factual = check_factual_accuracy(resume.plain_text, profile)
+        factual = check_factual_accuracy(resume.plain_text, profile, job_title=job.title, company=job.company)
         ats = validate_ats(resume.plain_text)
         resume.ats_passed = ats.passed
         resume.ats_issues = ats.issues

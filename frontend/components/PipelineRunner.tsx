@@ -137,7 +137,7 @@ export default function PipelineRunner() {
       logSuccess("Profile saved");
 
       logStep("Dispatching job to the agent pipeline...");
-      const res = await api.run({
+      const startRes = await api.run({
         query,
         location,
         sites: sites.length ? sites : ["indeed"],
@@ -148,16 +148,40 @@ export default function PipelineRunner() {
         auto_apply: autoApply,
       });
 
+      const taskId = startRes.task_id;
+      logStep(`Job dispatched. Task ID: ${taskId}. Processing background run...`);
+
+      let taskDone = false;
+      let finalResult: PipelineResult | null = null;
+
+      while (!taskDone) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const statusRes = await api.pollTask(taskId);
+        if (statusRes.status === "done") {
+          finalResult = statusRes.result;
+          taskDone = true;
+        } else if (statusRes.status === "error") {
+          throw new Error(statusRes.error || "Background task failed.");
+        }
+      }
+
+      if (!finalResult) {
+        throw new Error("No pipeline result returned from server.");
+      }
+
+      // Clear the optimistic timers
+      timers.forEach(clearTimeout);
+
       // Log the real completion of each agent from the returned audit trail.
-      for (const s of res.agent_chain || []) {
+      for (const s of finalResult.agent_chain || []) {
         const note = (s.summary as string) || (s.note as string) || "";
         logSuccess(`Agent complete - ${s.agent}${note ? " - " + note : ""}`);
       }
       logSuccess(
-        `Pipeline complete in ${res.elapsed_s}s - ${res.recommendations.length} matches, ${res.jobs_scraped} scraped, ${res.jobs_verified} verified`
+        `Pipeline complete in ${finalResult.elapsed_s}s - ${finalResult.recommendations.length} matches, ${finalResult.jobs_scraped} scraped, ${finalResult.jobs_verified} verified`
       );
 
-      setResult(res);
+      setResult(finalResult);
       setStep(9);
     } catch (e) {
       // The api client already logged the RAW error (operation + url + raw message).

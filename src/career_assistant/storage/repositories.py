@@ -11,23 +11,7 @@ from ..models.user import User
 from .database import Database, get_database
 
 
-class UserRepository:
-    def __init__(self, db: Optional[Database] = None) -> None:
-        self.db = db or get_database()
-
-    def create(self, user: User) -> None:
-        self.db.execute(
-            "INSERT INTO users (id, email, payload, created_at) VALUES (?, ?, ?, ?)",
-            (user.id, str(user.email).lower(), user.model_dump_json(), user.created_at.isoformat()),
-        )
-
-    def get_by_email(self, email: str) -> Optional[User]:
-        rows = self.db.query("SELECT payload FROM users WHERE email = ?", (email.lower(),))
-        return User.model_validate_json(rows[0]["payload"]) if rows else None
-
-    def get_by_id(self, user_id: str) -> Optional[User]:
-        rows = self.db.query("SELECT payload FROM users WHERE id = ?", (user_id,))
-        return User.model_validate_json(rows[0]["payload"]) if rows else None
+from .user_repository import UserRepository
 
 
 class JobRepository:
@@ -63,7 +47,7 @@ class ProfileRepository:
         self.db.execute(
             "INSERT INTO profiles (user_id, payload, updated_at) VALUES (?, ?, ?) "
             "ON CONFLICT(user_id) DO UPDATE SET payload=excluded.payload, updated_at=excluded.updated_at",
-            (profile.user_id, profile.model_dump_json(), datetime.utcnow().isoformat()),
+            (profile.user_id, profile.model_dump_json(), datetime.now(timezone.utc).isoformat()),
         )
 
     def get(self, user_id: str) -> Optional[UserProfile]:
@@ -76,7 +60,7 @@ class ApplicationRepository:
         self.db = db or get_database()
 
     def save(self, app: Application) -> None:
-        app.updated_at = datetime.utcnow()
+        app.updated_at = datetime.now(timezone.utc)
         self.db.execute(
             "INSERT INTO applications (id, user_id, job_id, status, platform, payload, updated_at) "
             "VALUES (?, ?, ?, ?, ?, ?, ?) "

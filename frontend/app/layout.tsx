@@ -2,7 +2,11 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
-import ErrorLogger from "@/components/ErrorLogger";
+import dynamic from "next/dynamic";
+
+const ErrorLogger = dynamic(() => import("@/components/ErrorLogger"), {
+  ssr: false,
+});
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const grotesk = Space_Grotesk({
@@ -24,11 +28,13 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
+  const isDev = process.env.NODE_ENV === "development";
+
   return (
     <html lang="en" className={`${inter.variable} ${grotesk.variable}`}>
       <body className="min-h-screen font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>
-        <ErrorLogger />
+        {isDev && <ErrorLogger />}
       </body>
     </html>
   );

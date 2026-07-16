@@ -37,14 +37,20 @@ Two deployable units:
    `https://<your-username>-ai-career-assistant.hf.space`
    (check `/health` and `/docs`).
 
-> The Dockerfile listens on `${PORT:-7860}`; Spaces sets `PORT=7860` automatically.
-
 ### Option B — Any other Docker host (Render/Fly/Railway)
 
 ```bash
 docker build -t ai-career-assistant .
 docker run -p 8000:7860 -e OPENAI_API_KEY=sk-... ai-career-assistant
 ```
+
+### Production Security Configuration
+
+When running in a production environment, set the following environment variables. The application checks these at startup and will fail loudly if they are missing or insecure:
+
+- `ENV`: Set to `production` to activate production safeguards.
+- `JWT_SECRET`: A secure random secret key used to sign JWT session cookies. The startup check will reject the default development placeholder value.
+- `ALLOWED_ORIGINS`: A comma-separated list of allowed origin URLs (e.g. `https://your-app.vercel.app`). Wildcard `*` and empty values are rejected in production to guarantee secure CORS.
 
 ---
 

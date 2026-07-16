@@ -53,12 +53,12 @@ def is_expired(job: Job, max_age_days: int = 60) -> bool:
     """Best-effort expiry check using date_posted (YYYY-MM-DD)."""
     if not job.date_posted:
         return False
-    from datetime import datetime
+    from datetime import datetime, timezone
 
     for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S"):
         try:
-            posted = datetime.strptime(job.date_posted[: len(fmt) + 2], fmt)
-            return (datetime.utcnow() - posted).days > max_age_days
+            posted = datetime.strptime(job.date_posted[: len(fmt) + 2], fmt).replace(tzinfo=timezone.utc)
+            return (datetime.now(timezone.utc) - posted).days > max_age_days
         except ValueError:
             continue
     return False

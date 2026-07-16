@@ -28,3 +28,16 @@ def test_factual_accuracy_allows_grounded_doc(profile):
 
 def test_profile_completeness(profile):
     assert check_profile_completeness(profile).passed is True
+
+
+def test_factual_accuracy_ignores_job_title_skills(profile):
+    doc = (
+        "Re: Application for the React Developer position at Acme Corp\n"
+        "Dear Hiring Manager,\n"
+        "I am writing to express interest in the React Developer role. "
+        "I bring strong skills in python and fastapi.\n"
+        "Sincerely,\nJane Doe"
+    )
+    result = check_factual_accuracy(doc, profile, job_title="React Developer", company="Acme Corp")
+    assert result.passed is True
+

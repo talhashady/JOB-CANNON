@@ -1,3 +1,14 @@
+---
+title: AI Career Assistant API
+emoji: 🚀
+colorFrom: indigo
+colorTo: purple
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+---
+
 #  JOB CANNON
 
 A production-oriented **multi-agent system** that automates the job-search lifecycle:

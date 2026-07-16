@@ -4,9 +4,7 @@ import { Mail, Clock, AlertTriangle, Ban, CheckCircle2, ExternalLink } from "luc
 import type { Application } from "@/lib/types";
 
 const STATUS_META: Record<string, { label: string; cls: string }> = {
-  email_sent: { label: "Email sent", cls: "bg-neon-lime/15 text-neon-lime border-neon-lime/30" },
   dry_run: { label: "Dry run", cls: "bg-neon-cyan/15 text-neon-cyan border-neon-cyan/30" },
-  no_contact: { label: "No contact", cls: "bg-amber-400/15 text-amber-300 border-amber-400/30" },
   rate_limited: { label: "Rate limited", cls: "bg-orange-400/15 text-orange-300 border-orange-400/30" },
   error: { label: "Error", cls: "bg-red-500/15 text-red-300 border-red-500/30" },
   queued: { label: "Queued", cls: "bg-white/10 text-white/70 border-white/20" },
@@ -16,12 +14,10 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
 function StatusBadge({ status }: { status: string }) {
   const meta = STATUS_META[status] ?? { label: status, cls: "bg-white/10 text-white/70 border-white/20" };
   const Icon =
-    status === "email_sent" || status === "submitted"
+    status === "submitted"
       ? CheckCircle2
       : status === "dry_run"
       ? Mail
-      : status === "no_contact"
-      ? Ban
       : status === "error"
       ? AlertTriangle
       : Clock;

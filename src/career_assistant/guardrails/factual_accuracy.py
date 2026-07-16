@@ -28,9 +28,44 @@ def _skill_tokens(text: str) -> Iterable[str]:
             yield low
 
 
-def check_factual_accuracy(document_text: str, profile: UserProfile) -> GuardResult:
+def check_factual_accuracy(
+    document_text: str,
+    profile: UserProfile,
+    job_title: str = "",
+    company: str = "",
+) -> GuardResult:
+    """Validate that the document does not claim skills not present in the profile.
+
+    Before checking, we strip out greetings, closings, headers, and direct references to
+    the job title or company name to avoid false positives (e.g. matching a skill word that
+    appears in the job title itself).
+    """
     allowed = profile.skills_lower
-    fabricated = sorted({tok for tok in _skill_tokens(document_text) if tok not in allowed})
+
+    # Clean the text to avoid false positives on metadata/headers/greetings
+    clean_text = document_text
+
+    # Strip headers/subject lines starting with Re:, Subject:, etc.
+    clean_text = re.sub(r"(?im)^\s*(?:re|subject|ref|date|to|from):?.*$", "", clean_text)
+
+    # Strip greetings and closings
+    clean_text = re.sub(r"(?i)\b(?:dear|sincerely|respectfully|best regards|regards|thank you)\b.*", "", clean_text)
+
+    # Strip exact job title and company references
+    if job_title:
+        clean_text = re.sub(re.escape(job_title), " ", clean_text, flags=re.IGNORECASE)
+        # Handle case where job title has dynamic formatting
+        words = job_title.split()
+        if len(words) > 1:
+            for word in words:
+                if word.lower() in _KNOWN_SKILLS:
+                    # Clean up isolated instances of job title parts if they are skill words
+                    clean_text = re.sub(rf"(?i)\b{re.escape(word)}\b\s+(?:role|position|job|posting|opportunity)", " ", clean_text)
+
+    if company:
+        clean_text = re.sub(re.escape(company), " ", clean_text, flags=re.IGNORECASE)
+
+    fabricated = sorted({tok for tok in _skill_tokens(clean_text) if tok not in allowed})
     if fabricated:
         return GuardResult(
             passed=False,

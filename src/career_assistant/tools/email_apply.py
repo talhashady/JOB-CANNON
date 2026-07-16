@@ -162,3 +162,30 @@ def send_application_email(
         log.error("Email send failed: %s", exc)
         detail["error"] = str(exc)
         return "error", detail
+
+
+def email_submission_backend(job: Job, resume_text: str, cover_letter_text: str) -> str:
+    """Adapter conforming to application_submit's SubmissionBackend signature."""
+    to_email = find_apply_email(job)
+    if not to_email:
+        raise ValueError("No apply email could be found for this job posting.")
+
+    subject = f"Application for the {job.title} position"
+    body = (
+        f"Dear Hiring Manager,\n\n"
+        f"Please find attached my application for the {job.title} position at {job.company or 'your company'}.\n\n"
+        f"Sincerely,\n"
+    )
+
+    status, detail = send_application_email(
+        to_email=to_email,
+        subject=subject,
+        body=body,
+        resume_text=resume_text,
+        cover_letter_text=cover_letter_text,
+    )
+
+    if status == "error":
+        raise RuntimeError(detail.get("error", "Email send failed."))
+
+    return f"Email sent to {to_email} (confirmation: {status})"

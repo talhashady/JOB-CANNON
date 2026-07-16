@@ -110,8 +110,17 @@ def _extract_skills(text: str) -> List[str]:
 
 
 def _extract_years(text: str) -> float:
-    matches = re.findall(r"(\d+(?:\.\d+)?)\+?\s*years?", text, re.IGNORECASE)
-    return max((float(m) for m in matches), default=0.0)
+    # Match patterns indicating the candidate's own experience:
+    # E.g. "5 years of experience", "5+ years working as", "3+ years in platform engineering", etc.
+    patterns = [
+        r"(\d+(?:\.\d+)?)\+?\s*years?(?:\s+of)?\s+experience",
+        r"(\d+(?:\.\d+)?)\+?\s*years?\s+(?:in|working|as|doing|at|history|professional|on|with|using)",
+    ]
+    found = []
+    for pat in patterns:
+        matches = re.findall(pat, text, re.IGNORECASE)
+        found.extend(float(m) for m in matches)
+    return max(found, default=0.0)
 
 
 def _extract_titles(text: str) -> List[str]:

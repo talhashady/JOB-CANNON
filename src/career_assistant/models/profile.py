@@ -1,7 +1,7 @@
 """User profile and session-context models."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, EmailStr, field_validator
@@ -52,17 +52,18 @@ class ProfileContext(BaseModel):
     match_scores: Dict[str, float] = Field(default_factory=dict)
     application_status: Dict[str, str] = Field(default_factory=dict)
     agent_chain: List[Dict[str, Any]] = Field(default_factory=list)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     def record_step(self, agent: str, summary: str, **extra: Any) -> None:
         """Append an entry to the audit trail (used for tracing/observability)."""
+        from datetime import timezone
         self.agent_chain.append(
             {
                 "agent": agent,
                 "summary": summary,
-                "at": datetime.utcnow().isoformat(),
+                "at": datetime.now(timezone.utc).isoformat(),
                 **extra,
             }
         )
-        self.updated_at = datetime.utcnow()
+        self.updated_at = datetime.now(timezone.utc)

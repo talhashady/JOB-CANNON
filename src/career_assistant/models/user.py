@@ -6,7 +6,7 @@ backend stays dependency-light and import-safe on a minimal Docker image.
 from __future__ import annotations
 
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -28,7 +28,7 @@ class User(BaseModel):
     email: str
     full_name: str = ""
     password_hash: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_validator("email")
     @classmethod
@@ -47,7 +47,7 @@ class PublicUser(BaseModel):
     id: str
     email: str
     full_name: str = ""
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class SignupRequest(BaseModel):

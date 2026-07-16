@@ -47,9 +47,9 @@ export default function DashboardPage() {
 
   const counts = {
     total: apps.length,
-    sent: apps.filter((a) => a.status === "email_sent").length,
+    sent: apps.filter((a) => a.status === "submitted").length,
     dryRun: apps.filter((a) => a.status === "dry_run").length,
-    noContact: apps.filter((a) => a.status === "no_contact").length,
+    error: apps.filter((a) => a.status === "error").length,
   };
 
   return (
@@ -92,9 +92,9 @@ export default function DashboardPage() {
           <>
             <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
               <Stat label="Total" value={counts.total} />
-              <Stat label="Email sent" value={counts.sent} />
+              <Stat label="Submitted" value={counts.sent} />
               <Stat label="Dry run" value={counts.dryRun} />
-              <Stat label="No contact" value={counts.noContact} />
+              <Stat label="Error" value={counts.error} />
             </div>
 
             {error && (
