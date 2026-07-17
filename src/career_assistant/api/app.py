@@ -14,7 +14,7 @@ import os
 import threading
 import time
 import uuid
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile, Request, Response, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -63,6 +63,23 @@ else:
     _origins = [o.strip() for o in _origins_raw.split(",") if o.strip()]
     if not _origins:
         _origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+
+# --- Cross-origin detection (for cookie samesite policy) --------------------
+_is_prod = _env == "production"
+# If ALLOWED_ORIGINS contains a different domain than the backend, cookies need
+# samesite="none" + secure=True to work across origins.
+_cross_origin = any(
+    not o.startswith("http://localhost") and not o.startswith("http://127.0.0.1")
+    for o in _origins
+) if _origins else False
+
+
+def _cookie_kwargs() -> dict:
+    """Return consistent cookie kwargs for signup/login/logout."""
+    if _cross_origin or _is_prod:
+        return {"httponly": True, "secure": True, "samesite": "none"}
+    return {"httponly": True, "secure": False, "samesite": "lax"}
+
 
 # --- CORS -------------------------------------------------------------------
 app.add_middleware(
@@ -196,10 +213,8 @@ def signup(req: SignupRequest, request: Request, response: Response) -> AuthResp
     response.set_cookie(
         key="careeros_token",
         value=token,
-        httponly=True,
         max_age=_settings.jwt_expire_hours * 3600,
-        secure=os.environ.get("ENV", "development").strip().lower() == "production",
-        samesite="lax",
+        **_cookie_kwargs(),
     )
     return AuthResponse(access_token=token, user=user.public())
 
@@ -216,10 +231,8 @@ def login(req: LoginRequest, request: Request, response: Response) -> AuthRespon
     response.set_cookie(
         key="careeros_token",
         value=token,
-        httponly=True,
         max_age=_settings.jwt_expire_hours * 3600,
-        secure=os.environ.get("ENV", "development").strip().lower() == "production",
-        samesite="lax",
+        **_cookie_kwargs(),
     )
     return AuthResponse(access_token=token, user=user.public())
 
@@ -228,9 +241,7 @@ def login(req: LoginRequest, request: Request, response: Response) -> AuthRespon
 def logout(response: Response) -> dict:
     response.delete_cookie(
         key="careeros_token",
-        httponly=True,
-        secure=os.environ.get("ENV", "development").strip().lower() == "production",
-        samesite="lax",
+        **_cookie_kwargs(),
     )
     return {"status": "logged_out"}
 

@@ -28,13 +28,11 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const isDev = process.env.NODE_ENV === "development";
-
   return (
     <html lang="en" className={`${inter.variable} ${grotesk.variable}`}>
       <body className="min-h-screen font-sans antialiased">
         <AuthProvider>{children}</AuthProvider>
-        {isDev && <ErrorLogger />}
+        <ErrorLogger />
       </body>
     </html>
   );

@@ -22,12 +22,14 @@ def _isolated_db(monkeypatch, tmp_path):
     if hasattr(database.get_database, "cache_clear"):
         database.get_database.cache_clear()
     database._postgres_db = None
+    database._sqlite_db = None
     database._logged_sqlite_warning = False
     yield
     config.get_settings.cache_clear()
     if hasattr(database.get_database, "cache_clear"):
         database.get_database.cache_clear()
     database._postgres_db = None
+    database._sqlite_db = None
     database._logged_sqlite_warning = False
 
 

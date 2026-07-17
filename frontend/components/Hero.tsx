@@ -21,9 +21,7 @@ export default function Hero() {
   return (
     <section id="top" className="relative flex min-h-screen items-center justify-center overflow-hidden px-4">
       {/* 3D layer */}
-      <div className="absolute inset-0">
-        <Scene3D />
-      </div>
+      <Scene3D />
       {/* readability scrim */}
       <div className="absolute inset-0 bg-gradient-to-b from-ink-950/30 via-ink-950/10 to-ink-950" />
 

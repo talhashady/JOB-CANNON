@@ -8,14 +8,14 @@ import {
   GradientTexture,
   Sparkles,
 } from "@react-three/drei";
-import { Suspense, useRef } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import type { Mesh, Group } from "three";
 
 /**
  * A cinematic 3D hero: a slowly morphing "career orb" orbited by smaller
  * gem-like agents, wrapped in floating sparkles. Designed to feel premium and
- * alive without overwhelming the content. Degrades gracefully on low-power
- * devices via dpr clamping and lazy Suspense.
+ * alive without overwhelming the content. Uses IntersectionObserver to
+ * pause rendering when scrolled out of view, preventing GPU waste.
  */
 
 const CAMERA = { position: [0, 0, 8] as [number, number, number], fov: 45 };
@@ -86,17 +86,36 @@ function AgentSatellites() {
 
 export default function Scene3D() {
   const dpr: [number, number] = [1, 1.8];
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  // Only render the 3D canvas when the hero section is in view.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(entry.isIntersecting),
+      { threshold: 0.05 }
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   return (
-    <Canvas className="!absolute inset-0" dpr={dpr} camera={CAMERA} gl={GL}>
-      <Suspense fallback={null}>
-        <ambientLight intensity={0.4} />
-        <directionalLight position={[5, 5, 5]} intensity={1.4} color="#c4b5fd" />
-        <pointLight position={[-6, -3, -4]} intensity={2} color="#22d3ee" />
-        <CareerOrb />
-        <AgentSatellites />
-        <Sparkles count={120} scale={12} size={2.5} speed={0.4} color="#a5b4fc" opacity={0.6} />
-        <Environment preset="city" />
-      </Suspense>
-    </Canvas>
+    <div ref={containerRef} className="absolute inset-0">
+      {visible && (
+        <Canvas className="!absolute inset-0" dpr={dpr} camera={CAMERA} gl={GL} frameloop="always">
+          <Suspense fallback={null}>
+            <ambientLight intensity={0.4} />
+            <directionalLight position={[5, 5, 5]} intensity={1.4} color="#c4b5fd" />
+            <pointLight position={[-6, -3, -4]} intensity={2} color="#22d3ee" />
+            <CareerOrb />
+            <AgentSatellites />
+            <Sparkles count={40} scale={12} size={2.5} speed={0.4} color="#a5b4fc" opacity={0.6} />
+            <Environment preset="city" />
+          </Suspense>
+        </Canvas>
+      )}
+    </div>
   );
 }

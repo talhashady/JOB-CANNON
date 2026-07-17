@@ -109,17 +109,20 @@ export default function JobResultCard({ rec, index }: { rec: Recommendation; ind
                 <div>
                   <h4 className="mb-2 font-semibold text-white">Learning roadmap</h4>
                   <ul className="list-inside list-disc space-y-1 text-white/70">
-                    {(skill_gap.roadmap as unknown[]).map((r, i) => (
-                      <li key={i}>{typeof r === "string" ? r : `${(r as any).skill} \u2014 ${(r as any).resource}`}</li>
+                    {(skill_gap.learning_roadmap || []).map((r, i) => (
+                      <li key={i}>{r}</li>
                     ))}
-                    {skill_gap.roadmap.length === 0 && <li>No major gaps — you're a strong fit.</li>}
+                    {(!skill_gap.learning_roadmap || skill_gap.learning_roadmap.length === 0) && <li>No major gaps — you're a strong fit.</li>}
                   </ul>
                 </div>
                 <div>
                   <h4 className="mb-2 font-semibold text-white">Mock interview questions</h4>
                   <ol className="list-inside list-decimal space-y-1 text-white/70">
-                    {interview_prep.questions.map((q, i) => (
-                      <li key={i}>{q}</li>
+                    {(interview_prep.technical_questions || []).map((q, i) => (
+                      <li key={`t-${i}`}>{q}</li>
+                    ))}
+                    {(interview_prep.behavioral_questions || []).map((q, i) => (
+                      <li key={`b-${i}`}>{q}</li>
                     ))}
                   </ol>
                 </div>

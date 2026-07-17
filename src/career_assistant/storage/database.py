@@ -83,20 +83,27 @@ class Database:
 _postgres_db: Optional[Any] = None
 _db_lock = threading.Lock()
 
+_sqlite_db: Optional[Database] = None
+
 # Startup SQLite warning logging flag
 _logged_sqlite_warning = False
 
 
 def get_database(path: Optional[str] = None) -> Any:
-    global _postgres_db, _logged_sqlite_warning
+    global _postgres_db, _logged_sqlite_warning, _sqlite_db
     settings = get_settings()
 
     # If SQLite configured or custom path specified, use local SQLite
     if settings.is_sqlite or path is not None:
-        if not _logged_sqlite_warning and path is None:
+        if path is not None:
+            # Custom path bypasses the singleton (used for testing)
+            return Database(path)
+        if not _logged_sqlite_warning:
             log.warning("No Postgres DATABASE_URL configured. Running in local/dev mode with SQLite database.")
             _logged_sqlite_warning = True
-        return Database(path or settings.sqlite_path)
+        if _sqlite_db is None:
+            _sqlite_db = Database(settings.sqlite_path)
+        return _sqlite_db
 
     # Postgres is configured - do NOT silently fallback to SQLite
     with _db_lock:

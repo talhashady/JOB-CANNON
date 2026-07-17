@@ -153,9 +153,15 @@ export default function PipelineRunner() {
 
       let taskDone = false;
       let finalResult: PipelineResult | null = null;
+      const MAX_POLLS = 150; // 150 × 2s = 5 minutes max
+      let pollCount = 0;
 
       while (!taskDone) {
+        if (pollCount >= MAX_POLLS) {
+          throw new Error("Pipeline timed out after 5 minutes. The server may have restarted — please try again.");
+        }
         await new Promise((resolve) => setTimeout(resolve, 2000));
+        pollCount++;
         const statusRes = await api.pollTask(taskId);
         if (statusRes.status === "done") {
           finalResult = statusRes.result;

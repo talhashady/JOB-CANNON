@@ -11,35 +11,51 @@ export interface Job {
   is_remote?: boolean;
   salary_min?: number | null;
   salary_max?: number | null;
-  posted_at?: string | null;
+  date_posted?: string | null;
   verified?: boolean;
 }
 
 export interface MatchResult {
+  job_id?: string;
   score: number;
+  skill_score?: number;
+  experience_score?: number;
+  location_score?: number;
+  goal_score?: number;
   rationale: string;
   matched_skills: string[];
   missing_skills: string[];
-  breakdown?: Record<string, number>;
 }
 
 export interface GeneratedResume {
+  job_id?: string;
+  summary?: string;
   plain_text: string;
-  highlights?: string[];
+  highlighted_skills?: string[];
+  sections?: string[];
+  ats_passed?: boolean;
+  ats_issues?: string[];
 }
 
 export interface GeneratedCoverLetter {
+  job_id?: string;
   body: string;
   subject?: string;
+  word_count?: number;
 }
 
 export interface SkillGapReport {
+  job_id?: string;
   missing_skills: string[];
-  roadmap: { skill: string; resource: string }[] | string[];
+  learning_roadmap: string[];
+  estimated_weeks?: number;
 }
 
 export interface InterviewPrep {
-  questions: string[];
+  job_id?: string;
+  technical_questions: string[];
+  behavioral_questions: string[];
+  tips?: string[];
 }
 
 // --- auth -------------------------------------------------------------------
@@ -106,6 +122,7 @@ export interface PipelineResult {
   jobs_scraped: number;
   jobs_verified: number;
   recommendations: Recommendation[];
+  failed_recommendations?: { job_title: string; company: string; url?: string; reason: string }[];
   agent_chain: { agent: string; summary?: string; note?: string; [k: string]: unknown }[];
   elapsed_s: number;
 }

@@ -50,8 +50,13 @@ export default function ErrorLogger() {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState<number | null>(null);
   const counter = useRef(0);
+  const patched = useRef(false);
 
   useEffect(() => {
+    // Guard against React Strict Mode double-mounting
+    if (patched.current) return;
+    patched.current = true;
+
     const add = (level: Level, tag: string, message: string, detail?: string) => {
       counter.current += 1;
       const id = counter.current;
@@ -99,19 +104,9 @@ export default function ErrorLogger() {
       origWarn(...args);
     };
 
-    // 4) Wrap fetch to catch any network failure not already surfaced by the api client.
-    const origFetch = window.fetch;
-    window.fetch = (async (...args: Parameters<typeof fetch>) => {
-      const target = typeof args[0] === "string" ? args[0] : args[0] instanceof URL ? args[0].toString() : (args[0] as Request).url;
-      try {
-        const res = await origFetch(...args);
-        if (!res.ok) add("error", "network", `${res.status} ${res.statusText} - ${target}`);
-        return res;
-      } catch (err) {
-        add("error", "network", `Network request failed - ${target}`, safeStringify(err));
-        throw err;
-      }
-    }) as typeof window.fetch;
+    // NOTE: window.fetch wrapper removed — the api.ts http() helper already
+    // logs all errors with full context, so wrapping fetch here caused
+    // duplicate error entries in the logger panel.
 
     return () => {
       window.removeEventListener(ACTIVITY_EVENT, onActivity as EventListener);
@@ -119,7 +114,7 @@ export default function ErrorLogger() {
       window.removeEventListener("unhandledrejection", onRejection);
       console.error = origError;
       console.warn = origWarn;
-      window.fetch = origFetch;
+      patched.current = false;
     };
   }, []);
 

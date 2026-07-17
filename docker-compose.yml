@@ -5,11 +5,11 @@ services:
       - "8000:8000"
     environment:
       # Override in a .env file or here. SQLite default needs no extra services.
+      - PORT=8000
       - DATABASE_URL=sqlite:///career_assistant.db
       - ALLOW_LIVE_APPLY=false
       - DEFAULT_JOB_SITES=indeed
       - LOG_LEVEL=INFO
-      # - OPENAI_API_KEY=sk-...
     volumes:
       - ./data:/app/data
 

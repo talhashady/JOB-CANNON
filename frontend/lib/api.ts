@@ -15,23 +15,28 @@ import { logError } from "./logger";
 const BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
 
 const TOKEN_KEY = "careeros_token";
+const SESSION_FLAG = "careeros_has_session";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  // Dummy token to trigger auth check on mount in auth.tsx (cookies are used for actual auth)
-  return "session";
+  // Only report "have token" if the user has signed in during this browser session
+  return sessionStorage.getItem(SESSION_FLAG);
 }
-function setToken(token: string): void {
-  // No-op: token is stored in httpOnly cookie
+function setToken(_token: string): void {
+  // Token is stored in httpOnly cookie by the backend; mark that we have a session
+  if (typeof window !== "undefined") sessionStorage.setItem(SESSION_FLAG, "1");
 }
 function clearToken(): void {
-  // Clear cookie on backend via POST logout
+  // Clear the session flag and tell the backend to delete the cookie
+  if (typeof window !== "undefined") sessionStorage.removeItem(SESSION_FLAG);
   fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
 }
 
 /**
  * Core request helper.
  * - Sets JSON content-type only for non-FormData bodies (so file uploads work).
+ * - Adds a 30-second timeout via AbortController (handles backend cold-start).
+ * - Retries once on network failure with a 2-second backoff.
  * - On ANY failure (network or HTTP) it logs the RAW error with full context
  *   (operation + url + raw error) and rethrows the raw error - nothing hidden.
  */
@@ -46,13 +51,34 @@ async function http<T>(operation: string, path: string, init?: RequestInit): Pro
     headers["Content-Type"] = "application/json";
   }
 
+  const doFetch = async (): Promise<Response> => {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30_000);
+    try {
+      return await fetch(url, {
+        ...init,
+        headers,
+        credentials: "include",
+        cache: "no-store",
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
+
   let res: Response;
   try {
-    res = await fetch(url, { ...init, headers, credentials: "include", cache: "no-store" });
+    res = await doFetch();
   } catch (err) {
-    // Network-level failure: DNS, CORS, backend asleep, wrong/missing API URL, offline.
-    logError(`${operation} (network)`, where, err);
-    throw err instanceof Error ? err : new Error(String(err));
+    // Network-level failure: retry once after 2s backoff (handles backend cold-start).
+    await new Promise((r) => setTimeout(r, 2000));
+    try {
+      res = await doFetch();
+    } catch (retryErr) {
+      logError(`${operation} (network)`, where, retryErr);
+      throw retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+    }
   }
 
   if (!res.ok) {

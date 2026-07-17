@@ -48,6 +48,8 @@ class Application(BaseModel):
 
     resume_ref: Optional[str] = None
     cover_letter_ref: Optional[str] = None
+    apply_method: Optional[str] = None
+    apply_email: Optional[str] = None
     notes: List[str] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
