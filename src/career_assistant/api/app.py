@@ -87,33 +87,66 @@ def _cookie_kwargs(request: Optional[Request] = None) -> dict:
 
 
 # --- CORS -------------------------------------------------------------------
-# NOTE: Do NOT use allow_origin_regex with allow_credentials=True — Starlette's
-# CORSMiddleware silently drops `access-control-allow-credentials` from OPTIONS
-# preflight responses when a regex is used, causing browsers to block requests
-# with "Failed to fetch". List all allowed origins explicitly instead.
+# Starlette's CORSMiddleware short-circuits OPTIONS preflight responses and
+# sometimes omits `access-control-allow-credentials: true`.  Browsers demand
+# this header on preflights for credentialed requests (cookies) or they reject
+# the actual request with "Failed to fetch".
+#
+# CredentialsCORSFix is added AFTER CORSMiddleware via add_middleware, which
+# means Starlette prepends it to the stack — so it runs OUTSIDE/BEFORE
+# CORSMiddleware and can patch the response on the way out.
+
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+
+class CredentialsCORSFix:
+    """ASGI middleware that ensures preflight responses include allow-credentials."""
+
+    def __init__(self, app: ASGIApp, allowed_origins: set[str] | None = None) -> None:
+        self.app = app
+        self.allowed_origins = allowed_origins or set()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope.get("method") != "OPTIONS":
+            await self.app(scope, receive, send)
+            return
+
+        # Check origin from raw ASGI headers
+        origin = ""
+        for key, val in scope.get("headers", []):
+            if key == b"origin":
+                origin = val.decode()
+                break
+
+        if not origin or origin not in self.allowed_origins:
+            await self.app(scope, receive, send)
+            return
+
+        # Intercept the response and inject the missing header
+        async def patched_send(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                has_creds = any(k == b"access-control-allow-credentials" for k, _ in headers)
+                if not has_creds:
+                    headers.append((b"access-control-allow-credentials", b"true"))
+                message = {**message, "headers": headers}
+            await send(message)
+
+        await self.app(scope, receive, patched_send)
+
+
+# Order matters: add_middleware PREPENDS, so the last added runs outermost.
+# 1. First add CORSMiddleware (inner)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    allow_credentials=True,  # Mandatory for HTTP cookies
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Request-Id"],
 )
-
-
-@app.middleware("http")
-async def patch_cors_preflight(request: Request, call_next):
-    """Ensure preflight OPTIONS responses always include allow-credentials.
-
-    Starlette's CORSMiddleware sometimes omits this header on preflights,
-    which causes browsers to reject credentialed cross-origin requests.
-    """
-    response = await call_next(request)
-    if request.method == "OPTIONS":
-        origin = request.headers.get("origin", "")
-        if origin and origin in _origins:
-            response.headers.setdefault("access-control-allow-credentials", "true")
-    return response
+# 2. Then add CredentialsCORSFix (outer — runs before CORSMiddleware)
+app.add_middleware(CredentialsCORSFix, allowed_origins=set(_origins))
 
 
 # --- Global Exception Handlers ----------------------------------------------
