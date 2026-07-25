@@ -65,29 +65,32 @@ else:
     _origins_raw = os.environ.get("ALLOWED_ORIGINS", "")
     _origins = [o.strip() for o in _origins_raw.split(",") if o.strip()]
     if not _origins:
-        _origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+        _origins = [
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+            "https://job-cannon.vercel.app",
+        ]
 
 # --- Cross-origin detection (for cookie samesite policy) --------------------
 _is_prod = _env == "production"
-# If ALLOWED_ORIGINS contains a different domain than the backend, cookies need
-# samesite="none" + secure=True to work across origins.
-_cross_origin = any(
-    not o.startswith("http://localhost") and not o.startswith("http://127.0.0.1")
-    for o in _origins
-) if _origins else False
 
-
-def _cookie_kwargs() -> dict:
-    """Return consistent cookie kwargs for signup/login/logout."""
-    if _cross_origin or _is_prod:
-        return {"httponly": True, "secure": True, "samesite": "none"}
-    return {"httponly": True, "secure": False, "samesite": "lax"}
+def _cookie_kwargs(request: Optional[Request] = None) -> dict:
+    """Return consistent cookie kwargs for signup/login/logout.
+    Cross-origin requests (e.g. Vercel -> Hugging Face) require samesite='none' and secure=True.
+    Local HTTP requests use samesite='lax' and secure=False.
+    """
+    if request:
+        origin = request.headers.get("origin", "")
+        if origin.startswith("http://localhost") or origin.startswith("http://127.0.0.1"):
+            return {"httponly": True, "secure": False, "samesite": "lax"}
+    return {"httponly": True, "secure": True, "samesite": "none"}
 
 
 # --- CORS -------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,  # Mandatory for HTTP cookies
     allow_methods=["*"],
     allow_headers=["*"],
@@ -258,7 +261,7 @@ def signup(req: SignupRequest, request: Request, response: Response) -> AuthSucc
         key="careeros_token",
         value=token,
         max_age=_settings.jwt_expire_hours * 3600,
-        **_cookie_kwargs(),
+        **_cookie_kwargs(request),
     )
     return AuthSuccessResponse(user=user.public())
 
@@ -276,16 +279,16 @@ def login(req: LoginRequest, request: Request, response: Response) -> AuthSucces
         key="careeros_token",
         value=token,
         max_age=_settings.jwt_expire_hours * 3600,
-        **_cookie_kwargs(),
+        **_cookie_kwargs(request),
     )
     return AuthSuccessResponse(user=user.public())
 
 
 @app.post("/auth/logout")
-def logout(response: Response) -> dict:
+def logout(request: Request, response: Response) -> dict:
     response.delete_cookie(
         key="careeros_token",
-        **_cookie_kwargs(),
+        **_cookie_kwargs(request),
     )
     return {"status": "logged_out"}
 
