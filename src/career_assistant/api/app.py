@@ -111,24 +111,30 @@ class CredentialsCORSFix:
             await self.app(scope, receive, send)
             return
 
-        # Check origin from raw ASGI headers
+        # Check origin from raw ASGI headers (case-insensitive key comparison)
         origin = ""
         for key, val in scope.get("headers", []):
-            if key == b"origin":
-                origin = val.decode()
+            if key.lower() == b"origin":
+                origin = val.decode().strip()
                 break
 
-        if not origin or origin not in self.allowed_origins:
+        is_allowed = (
+            origin in self.allowed_origins
+            or origin.endswith(".vercel.app")
+            or origin.startswith("http://localhost")
+            or origin.startswith("http://127.0.0.1")
+        )
+
+        if not is_allowed:
             await self.app(scope, receive, send)
             return
 
-        # Intercept the response and inject the missing header
+        # Intercept the response and inject access-control-allow-credentials: true
         async def patched_send(message):
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
-                has_creds = any(k == b"access-control-allow-credentials" for k, _ in headers)
-                if not has_creds:
-                    headers.append((b"access-control-allow-credentials", b"true"))
+                headers = [(k, v) for k, v in headers if k.lower() != b"access-control-allow-credentials"]
+                headers.append((b"access-control-allow-credentials", b"true"))
                 message = {**message, "headers": headers}
             await send(message)
 
