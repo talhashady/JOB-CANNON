@@ -49,16 +49,17 @@ def scrape_jobs(request: JobSearchRequest) -> List[Job]:
         last_error = exc
         log.warning("JobSpy scrape failed (%s).", exc)
 
-    if jobs is None:
+    if not jobs:
         if settings.demo_mode:
-            log.info("DEMO_MODE is enabled; returning sample jobs.")
+            log.info("DEMO_MODE is enabled or live scrape returned no jobs; using sample jobs.")
             jobs = _sample_jobs(request)
         else:
             raise ScrapeError(
-                f"Job scrape failed: {last_error or 'unknown error'}. "
+                f"Job scrape failed: {last_error or 'no results'}. "
                 "Set DEMO_MODE=true for offline sample data.",
                 original=last_error,
             )
+
     return _filter_by_arrangement(jobs, getattr(request, "work_arrangement", "any"))
 
 
