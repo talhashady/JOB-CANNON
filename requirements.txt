@@ -1,4 +1,4 @@
 # All runtime dependencies are declared in pyproject.toml.
 # This file is a convenience wrapper so `pip install -r requirements.txt` still
 # works (Docker, CI, developer onboarding).
--e ".[all]"
+".[all]"

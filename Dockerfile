@@ -6,11 +6,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-COPY pyproject.toml requirements.txt ./
-RUN pip install --no-cache-dir -r requirements.txt
-
+# Copy everything first so the source tree is present for `pip install .`
 COPY . .
-RUN pip install --no-cache-dir -e .
+
+# Install all runtime dependencies (non-editable, production-ready).
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Hugging Face Spaces sends traffic to $PORT (defaults to 7860). Vercel/other
 # hosts can override PORT. Shell form so ${PORT} expands at runtime.
