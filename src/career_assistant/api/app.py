@@ -87,15 +87,33 @@ def _cookie_kwargs(request: Optional[Request] = None) -> dict:
 
 
 # --- CORS -------------------------------------------------------------------
+# NOTE: Do NOT use allow_origin_regex with allow_credentials=True — Starlette's
+# CORSMiddleware silently drops `access-control-allow-credentials` from OPTIONS
+# preflight responses when a regex is used, causing browsers to block requests
+# with "Failed to fetch". List all allowed origins explicitly instead.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_origins,
-    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,  # Mandatory for HTTP cookies
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["X-Request-Id"],
 )
+
+
+@app.middleware("http")
+async def patch_cors_preflight(request: Request, call_next):
+    """Ensure preflight OPTIONS responses always include allow-credentials.
+
+    Starlette's CORSMiddleware sometimes omits this header on preflights,
+    which causes browsers to reject credentialed cross-origin requests.
+    """
+    response = await call_next(request)
+    if request.method == "OPTIONS":
+        origin = request.headers.get("origin", "")
+        if origin and origin in _origins:
+            response.headers.setdefault("access-control-allow-credentials", "true")
+    return response
 
 
 # --- Global Exception Handlers ----------------------------------------------
