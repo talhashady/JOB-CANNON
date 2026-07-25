@@ -130,6 +130,7 @@ export default function AuthModal({
             <p className="mt-5 text-center text-sm text-white/50">
               {mode === "login" ? "New here?" : "Already have an account?"}{" "}
               <button
+                type="button"
                 onClick={() => {
                   setError(null);
                   setMode(mode === "login" ? "signup" : "login");
