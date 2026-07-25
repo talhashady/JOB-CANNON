@@ -28,17 +28,37 @@ def _to_float(value) -> float | None:
 
 
 def scrape_jobs(request: JobSearchRequest) -> List[Job]:
-    """Scrape jobs for a request. Returns normalized Job models."""
+    """Scrape jobs for a request. Returns normalized Job models.
+
+    Raises ``ScrapeError`` when DEMO_MODE is disabled and the scrape cannot
+    succeed (missing dependency, network error, etc.).
+    """
+    from ..config import get_settings
+    from .scrape_errors import ScrapeError
+
+    settings = get_settings()
     jobs = None
+    last_error: Exception | None = None
     try:
         jobs = _scrape_with_jobspy(request)
-    except ImportError:
-        log.warning("python-jobspy not installed; returning sample jobs. "
+    except ImportError as exc:
+        last_error = exc
+        log.warning("python-jobspy not installed — cannot scrape live jobs. "
                     "Install with `pip install python-jobspy` for live data.")
-    except Exception as exc:  # network / board errors -> degrade gracefully
-        log.warning("JobSpy scrape failed (%s); returning sample jobs.", exc)
+    except Exception as exc:  # network / board errors
+        last_error = exc
+        log.warning("JobSpy scrape failed (%s).", exc)
+
     if jobs is None:
-        jobs = _sample_jobs(request)
+        if settings.demo_mode:
+            log.info("DEMO_MODE is enabled; returning sample jobs.")
+            jobs = _sample_jobs(request)
+        else:
+            raise ScrapeError(
+                f"Job scrape failed: {last_error or 'unknown error'}. "
+                "Set DEMO_MODE=true for offline sample data.",
+                original=last_error,
+            )
     return _filter_by_arrangement(jobs, getattr(request, "work_arrangement", "any"))
 
 
@@ -121,7 +141,7 @@ def _sample_jobs(request: JobSearchRequest) -> List[Job]:
         title, company, lo, hi, skills = base[i]
         jobs.append(
             Job(
-                source=request.sites[0] if request.sites else "sample",
+                source="sample",
                 title=title,
                 company=company,
                 location=request.location,

@@ -2,8 +2,12 @@ from career_assistant.models.job import JobSearchRequest
 from career_assistant.pipeline import CareerPipeline
 
 
-def test_full_pipeline_offline(profile):
+def test_full_pipeline_offline(profile, monkeypatch):
     """End-to-end run in deterministic/offline mode (sample jobs, dry-run apply)."""
+    monkeypatch.setenv("DEMO_MODE", "true")
+    from career_assistant.config import get_settings
+    get_settings.cache_clear()
+
     pipeline = CareerPipeline()
     request = JobSearchRequest(query="python developer", location="Remote",
                                sites=["indeed"], results_wanted=5, is_remote=True)

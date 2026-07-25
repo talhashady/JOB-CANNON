@@ -1,12 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Loader2, Play, Sparkles, AlertCircle, Upload } from "lucide-react";
 import { api } from "@/lib/api";
 import type { PipelineResult, UserProfile } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
-import { logStep, logSuccess, logActivity } from "@/lib/logger";
+import { logStep, logSuccess } from "@/lib/logger";
 import AgentFlow from "./AgentFlow";
 import JobResultCard from "./JobResultCard";
 import CvDropzone from "./CvDropzone";
@@ -73,6 +73,11 @@ export default function PipelineRunner() {
   const [result, setResult] = useState<PipelineResult | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
 
+  // Clear any auth-related error once the user signs in.
+  useEffect(() => {
+    if (user) setError(null);
+  }, [user]);
+
   function toggleSite(s: string) {
     setSites((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }
@@ -91,25 +96,14 @@ export default function PipelineRunner() {
   }
 
   async function run() {
-    // Require sign-in before scraping; show an error and open the login popup.
+    // Require sign-in before scraping; open the login modal silently.
     if (!user) {
-      setError("Please sign in to start the scrape.");
-      logActivity(
-        "error",
-        "Run blocked - not signed in",
-        "What it tried : start pipeline run\nWhere         : PipelineRunner.run()\nRaw error     : No authenticated user (auth token missing)."
-      );
       setAuthOpen(true);
       return;
     }
 
     if (!cv.trim()) {
       setError("Please add your CV (paste text or upload a file) before running.");
-      logActivity(
-        "error",
-        "Run blocked - empty CV",
-        "What it tried : start pipeline run\nWhere         : PipelineRunner.run()\nRaw error     : CV text is empty (the backend requires cv_text >= 1 character)."
-      );
       return;
     }
 

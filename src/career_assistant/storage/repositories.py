@@ -91,3 +91,12 @@ class ApplicationRepository:
             (platform, ApplicationStatus.SUBMITTED.value, ApplicationStatus.DRY_RUN.value, today),
         )
         return int(rows[0]["c"]) if rows else 0
+
+    def count_submitted_today_for_user(self, user_id: str, platform: str) -> int:
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        rows = self.db.query(
+            "SELECT COUNT(*) AS c FROM applications "
+            "WHERE user_id = ? AND platform = ? AND status IN (?, ?) AND substr(created_at, 1, 10) = ?",
+            (user_id, platform, ApplicationStatus.SUBMITTED.value, ApplicationStatus.DRY_RUN.value, today),
+        )
+        return int(rows[0]["c"]) if rows else 0

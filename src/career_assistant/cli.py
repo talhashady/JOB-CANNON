@@ -64,20 +64,28 @@ def _print_summary(result: dict) -> None:
     print("\n" + "=" * 64)
     print(f"AI Career Assistant - results for: {result['query']}")
     print("=" * 64)
-    print(f"Scraped: {result['jobs_scraped']} | Verified: {result['jobs_verified']} "
-          f"| Elapsed: {result['elapsed_s']}s")
+    if result.get("is_demo") or result.get("data_source") == "demo":
+        print("\n" + "!" * 64)
+        print("  [DEMO MODE / SYNTHETIC DATA]")
+        print("  Note: Live scraping was unavailable or DEMO_MODE=true.")
+        print("  Results below are sample listings for testing/demonstration.")
+        if result.get("scrape_warning"):
+            print(f"  Scrape detail: {result['scrape_warning']}")
+        print("!" * 64 + "\n")
+    print(f"Data Source: {result.get('data_source', 'live').upper()} | Scraped: {result['jobs_scraped']} "
+          f"| Verified: {result['jobs_verified']} | Elapsed: {result['elapsed_s']}s")
     for i, rec in enumerate(result["recommendations"], 1):
         job = rec["job"]
         match = rec["match"]
         app = rec["application"]
         print(f"\n{i}. {job['title']} @ {job['company']}  ({job['location']})")
-        print(f"   match score : {match['score']:.2f}  ({match['rationale']})")
+        print(f"   match score : {match['score']:.2f} (skill score: {match.get('skill_score', 0):.2f}) - {match['rationale']}")
         print(f"   matched     : {', '.join(match['matched_skills']) or '-'}")
         if match["missing_skills"]:
             print(f"   to learn    : {', '.join(match['missing_skills'])}")
         if app:
             print(f"   application : {app['status']}")
-    print("\nNote: applications are DRY-RUN unless ALLOW_LIVE_APPLY=true and a backend is set.\n")
+    print("\nNote: applications are DRY-RUN unless ALLOW_LIVE_APPLY=true and confirm_live_apply=true.\n")
 
 
 def build_parser() -> argparse.ArgumentParser:

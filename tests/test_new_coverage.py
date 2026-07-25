@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 import uuid
 
 from career_assistant.config import Settings
-from career_assistant.api.app import app, auth_limiter
+from career_assistant.api.app import app
 from career_assistant.models.application import Application, ApplicationStatus
 from career_assistant.models.job import Job, JobSearchRequest
 from career_assistant.models.profile import UserProfile
@@ -35,7 +35,7 @@ def test_scraping_agent_mocked():
 
 def test_verification_agent_mocked():
     agent = VerificationAgent()
-    job = Job(id="job-1", title="Developer", company="Acme", description="Write code", job_url="http://x")
+    job = Job(id="job-1", title="Developer", company="Acme", description="Write code", job_url="https://acme.com/job/1")
     with patch("career_assistant.agents.base.LLMClient.complete") as mock_complete:
         mock_complete.return_value = '{"legitimate": true, "reason": "Looks good"}'
         verified = agent.run([job])
@@ -107,36 +107,34 @@ def test_skill_interview_agent_mocked(profile):
 
 def test_signup_login_cookie_and_rate_limiter():
     client = TestClient(app)
-    auth_limiter.history.clear()
     
     email = f"test_{uuid.uuid4().hex[:6]}@example.com"
     signup_payload = {"email": email, "password": "securepassword", "full_name": "New User"}
     
-    res = client.post("/auth/signup", json=signup_payload)
+    res = client.post("/auth/signup", json=signup_payload, headers={"X-Requested-With": "XMLHttpRequest"})
     assert res.status_code == 200
     assert "careeros_token" in res.cookies
     assert res.json()["user"]["email"] == email
 
     login_payload = {"email": email, "password": "securepassword"}
-    res = client.post("/auth/login", json=login_payload)
+    res = client.post("/auth/login", json=login_payload, headers={"X-Requested-With": "XMLHttpRequest"})
     assert res.status_code == 200
     assert "careeros_token" in res.cookies
 
-    # Rate Limiter Trigger: make 5 calls (total 6 requests from same IP)
+    # Rate Limiter Trigger: make 5 more calls (total 7 from same IP + email)
     for _ in range(5):
-         res = client.post("/auth/login", json=login_payload)
+         res = client.post("/auth/login", json=login_payload, headers={"X-Requested-With": "XMLHttpRequest"})
     
-    # The 6th request should return 429
+    # Should eventually hit the rate limit (5 attempts max per window)
     assert res.status_code == 429
     assert "attempts" in res.json()["detail"].lower()
 
 def test_async_run_polling_flow(profile):
     client = TestClient(app)
-    auth_limiter.history.clear()
     
     email = f"test_{uuid.uuid4().hex[:6]}@example.com"
     signup_payload = {"email": email, "password": "securepassword", "full_name": "New User"}
-    reg_res = client.post("/auth/signup", json=signup_payload)
+    reg_res = client.post("/auth/signup", json=signup_payload, headers={"X-Requested-With": "XMLHttpRequest"})
     cookie = reg_res.cookies["careeros_token"]
     user_id = reg_res.json()["user"]["id"]
     
@@ -155,7 +153,7 @@ def test_async_run_polling_flow(profile):
     }
 
     client.cookies.set("careeros_token", cookie)
-    res = client.post("/run", json=run_payload)
+    res = client.post("/run", json=run_payload, headers={"X-Requested-With": "XMLHttpRequest"})
     assert res.status_code == 202
     task_id = res.json()["task_id"]
     assert task_id

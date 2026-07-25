@@ -72,6 +72,11 @@ class LoginRequest(BaseModel):
 
 
 class AuthResponse(BaseModel):
-    access_token: str
+    access_token: Optional[str] = None
     token_type: str = "bearer"
     user: PublicUser
+
+
+class AuthSuccessResponse(BaseModel):
+    user: PublicUser
+

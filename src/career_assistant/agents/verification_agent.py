@@ -37,6 +37,14 @@ class VerificationAgent(BaseAgent):
                 continue
 
             legit, vnotes = company_verify.verify_company(job)
+            if job.source == "sample":
+                if self.settings.demo_mode:
+                    # In demo mode, sample jobs are allowed through with a warning
+                    legit = True
+                    vnotes = ["Synthetic demo job listing (demo mode)."]
+                else:
+                    legit = False
+                    vnotes.append("Sample jobs rejected in production mode.")
             job.verified = legit
             job.verification_notes = vnotes
             self.repo.upsert(job)

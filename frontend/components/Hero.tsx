@@ -15,7 +15,7 @@ const container = {
   hidden: {},
   show: { transition: { staggerChildren: 0.12, delayChildren: 0.1 } },
 };
-const heroTransition = { duration: 0.7, ease: "easeOut" };
+const heroTransition = { duration: 0.7, ease: "easeOut" as const };
 
 export default function Hero() {
   return (
@@ -60,7 +60,7 @@ export default function Hero() {
           <a href="#run" className="btn-glow">
             Run the pipeline <ArrowRight className="h-4 w-4" />
           </a>
-          <a href="#agents" className="btn-ghost">
+          <a id="hero-meet-agents" href="#agents" className="btn-ghost">
             <Bot className="h-4 w-4" /> Meet the agents
           </a>
         </motion.div>

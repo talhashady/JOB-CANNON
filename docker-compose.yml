@@ -6,7 +6,7 @@ services:
     environment:
       # Override in a .env file or here. SQLite default needs no extra services.
       - PORT=8000
-      - DATABASE_URL=sqlite:///career_assistant.db
+      - DATABASE_URL=sqlite:////app/data/career_assistant.db
       - ALLOW_LIVE_APPLY=false
       - DEFAULT_JOB_SITES=indeed
       - LOG_LEVEL=INFO

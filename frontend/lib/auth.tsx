@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * Auth context: holds the signed-in user + JWT, persists the token in localStorage,
+ * Auth context: holds the signed-in user (resolved via HttpOnly cookie on mount),
  * and exposes signin/signup/signout. Wrap the app with <AuthProvider> in app/layout.tsx.
  */
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
@@ -24,14 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [wakingUp, setWakingUp] = useState(false);
 
-  // On mount, resolve the current user.
+  // On mount, resolve the current user by calling /auth/me (using HttpOnly cookie).
   useEffect(() => {
     let cancelled = false;
-    const token = api.getToken();
-    if (!token) {
-      setLoading(false);
-      return;
-    }
 
     const timer = setTimeout(() => {
       if (!cancelled) setWakingUp(true);
@@ -61,14 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signin = useCallback(async (email: string, password: string) => {
     const res = await api.login({ email, password });
-    api.setToken(res.access_token);
     setUser(res.user);
   }, []);
 
   const signup = useCallback(
     async (email: string, password: string, fullName: string) => {
       const res = await api.signup({ email, password, full_name: fullName });
-      api.setToken(res.access_token);
       setUser(res.user);
     },
     []

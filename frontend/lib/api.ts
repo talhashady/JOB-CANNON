@@ -1,6 +1,5 @@
 import type {
   Application,
-  AuthResponse,
   AutoApplyParams,
   AutoApplyResult,
   HealthResponse,
@@ -12,23 +11,28 @@ import type {
 import { logError } from "./logger";
 
 // Trailing slash stripped so `${BASE}${path}` never produces a double slash.
-const BASE = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000").replace(/\/+$/, "");
-
-const TOKEN_KEY = "careeros_token";
-const SESSION_FLAG = "careeros_has_session";
+// In production, crash early if the env var is missing instead of silently
+// calling localhost:8000 from the deployed site (which causes "Failed to fetch").
+// Guard only runs in the browser — SSG prerendering doesn't need the API URL.
+const _raw = process.env.NEXT_PUBLIC_API_URL;
+if (!_raw && typeof window !== "undefined" && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is not set. " +
+      "Add it to your Vercel project settings (Settings → Environment Variables) " +
+      "and redeploy."
+  );
+}
+const BASE = (_raw ?? "http://localhost:8000").replace(/\/+$/, "");
 
 function getToken(): string | null {
-  if (typeof window === "undefined") return null;
-  // Only report "have token" if the user has signed in during this browser session
-  return sessionStorage.getItem(SESSION_FLAG);
+  // Auth state is held in HttpOnly cookie managed by browser/backend.
+  return "cookie";
 }
-function setToken(_token: string): void {
-  // Token is stored in httpOnly cookie by the backend; mark that we have a session
-  if (typeof window !== "undefined") sessionStorage.setItem(SESSION_FLAG, "1");
+function setToken(_token?: string): void {
+  // Token is set in HttpOnly cookie by backend. No-op on frontend.
 }
 function clearToken(): void {
-  // Clear the session flag and tell the backend to delete the cookie
-  if (typeof window !== "undefined") sessionStorage.removeItem(SESSION_FLAG);
+  // Tell backend to clear the HttpOnly cookie.
   fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
 }
 
@@ -43,12 +47,16 @@ function clearToken(): void {
 async function http<T>(operation: string, path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE}${path}`;
   const method = (init && init.method) || "GET";
-  const where = `${method} ${url}`;
+  const where = `${method} ${path}`;  // Use path only, not full URL (privacy)
 
   const headers: Record<string, string> = { ...((init && (init.headers as Record<string, string>)) || {}) };
   const isForm = typeof FormData !== "undefined" && init?.body instanceof FormData;
   if (init?.body && !isForm && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
+  }
+  // CSRF protection: send custom header on all state-changing requests
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+    headers["X-Requested-With"] = "XMLHttpRequest";
   }
 
   const doFetch = async (): Promise<Response> => {
@@ -77,7 +85,12 @@ async function http<T>(operation: string, path: string, init?: RequestInit): Pro
       res = await doFetch();
     } catch (retryErr) {
       logError(`${operation} (network)`, where, retryErr);
-      throw retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+      // Surface a friendlier message than the raw "Failed to fetch" TypeError.
+      const raw = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+      if (raw.name === "TypeError" || /failed to fetch/i.test(raw.message)) {
+        throw new Error("Could not reach the server \u2014 check your connection or try again in a few seconds.");
+      }
+      throw raw;
     }
   }
 
@@ -89,6 +102,7 @@ async function http<T>(operation: string, path: string, init?: RequestInit): Pro
     } catch {
       /* response had no JSON body */
     }
+    // Use path (not full URL) in error message for user privacy
     const error = new Error(`HTTP ${res.status} ${detail}`);
     logError(operation, where, error);
     throw error;
@@ -107,10 +121,10 @@ export const api = {
 
   // --- auth ---
   signup: (body: { email: string; password: string; full_name: string }) =>
-    http<AuthResponse>("Sign up", "/auth/signup", { method: "POST", body: JSON.stringify(body) }),
+    http<{ user: PublicUser }>("Sign up", "/auth/signup", { method: "POST", body: JSON.stringify(body) }),
 
   login: (body: { email: string; password: string }) =>
-    http<AuthResponse>("Log in", "/auth/login", { method: "POST", body: JSON.stringify(body) }),
+    http<{ user: PublicUser }>("Log in", "/auth/login", { method: "POST", body: JSON.stringify(body) }),
 
   me: () => http<PublicUser>("Load current user", "/auth/me"),
 
@@ -142,4 +156,10 @@ export const api = {
     }),
 
   applicationsMe: () => http<Application[]>("Load applications", "/applications/me"),
+
+  updateApplicationStatus: (id: string, status: string, note = "") =>
+    http<Application>("Update application status", `/applications/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status, note }),
+    }),
 };

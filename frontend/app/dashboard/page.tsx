@@ -11,7 +11,7 @@ import { useAuth } from "@/lib/auth";
 import { api } from "@/lib/api";
 import type { Application } from "@/lib/types";
 
-const fadeIn = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } };
+const fadeIn = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 } } as const;
 
 function Stat({ label, value }: { label: string; value: string | number }) {
   return (

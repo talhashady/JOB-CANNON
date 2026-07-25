@@ -67,7 +67,7 @@ export interface PublicUser {
 }
 
 export interface AuthResponse {
-  access_token: string;
+  access_token?: string;
   token_type?: string;
   user: PublicUser;
 }
@@ -119,6 +119,9 @@ export interface Recommendation {
 export interface PipelineResult {
   user_id: string;
   query: string;
+  data_source?: string;
+  is_demo?: boolean;
+  scrape_warning?: string | null;
   jobs_scraped: number;
   jobs_verified: number;
   recommendations: Recommendation[];
@@ -137,6 +140,9 @@ export interface RunParams {
   work_arrangement: string; // any | remote | hybrid | onsite
   top_k: number;
   auto_apply: boolean;
+  apply_min_score?: number;
+  apply_min_skill_score?: number;
+  confirm_live_apply?: boolean;
 }
 
 export interface AutoApplyParams {
@@ -147,15 +153,21 @@ export interface AutoApplyParams {
   is_remote: boolean;
   work_arrangement: string; // any | remote | hybrid | onsite
   min_score?: number;
+  min_skill_score?: number;
   max_applications?: number;
+  confirm_live_apply?: boolean;
 }
 
 export interface AutoApplyResult {
   user_id: string;
   query: string;
+  data_source?: string;
+  is_demo?: boolean;
+  scrape_warning?: string | null;
   jobs_scraped: number;
   jobs_verified: number;
   min_score: number;
+  min_skill_score?: number;
   max_applications: number;
   submitted_count: number;
   dry_run: boolean;

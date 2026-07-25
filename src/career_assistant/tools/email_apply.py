@@ -50,11 +50,92 @@ def extract_emails(text: str) -> List[str]:
         out.append(e)
     return out
 
+import ipaddress
+import socket
+
+
+def _is_private_ip(ip_str: str) -> bool:
+    """Return True if the IP is loopback, private, link-local, or reserved."""
+    try:
+        addr = ipaddress.ip_address(ip_str)
+        return (
+            addr.is_loopback
+            or addr.is_private
+            or addr.is_link_local
+            or addr.is_reserved
+            or addr.is_multicast
+        )
+    except ValueError:
+        return True  # if we can't parse it, reject it
+
+
+def _validate_url_safe(url: str) -> str:
+    """Validate a URL is safe to fetch (HTTPS, no private IPs).
+
+    Returns the validated URL or raises ValueError.
+    """
+    from urllib.parse import urlparse
+    from ..config import get_settings
+
+    parsed = urlparse(url)
+
+    # Scheme check: HTTPS only
+    if parsed.scheme != "https":
+        raise ValueError(f"Only HTTPS URLs are allowed, got {parsed.scheme!r}")
+
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("URL has no hostname")
+
+    # Domain allowlist check
+    settings = get_settings()
+    if settings.allowed_fetch_domains:
+        allowed = False
+        for domain in settings.allowed_fetch_domains:
+            if hostname == domain or hostname.endswith("." + domain):
+                allowed = True
+                break
+        if not allowed:
+            raise ValueError(f"Domain {hostname!r} is not in ALLOWED_FETCH_DOMAINS")
+
+    # DNS resolution: reject private/loopback/link-local addresses
+    try:
+        addr_infos = socket.getaddrinfo(hostname, parsed.port or 443, proto=socket.IPPROTO_TCP)
+    except socket.gaierror as exc:
+        raise ValueError(f"DNS resolution failed for {hostname!r}: {exc}")
+
+    for family, _type, _proto, _canonname, sockaddr in addr_infos:
+        ip_str = sockaddr[0]
+        if _is_private_ip(ip_str):
+            raise ValueError(
+                f"Resolved IP {ip_str} for {hostname!r} is a private/loopback/link-local address"
+            )
+
+    return url
+
+
+class _NoRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Block HTTP redirects to prevent SSRF via redirect to internal targets."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Validate redirect target before allowing it
+        try:
+            _validate_url_safe(newurl)
+        except ValueError as exc:
+            log.warning("Blocked redirect to %s: %s", newurl, exc)
+            return None  # block the redirect
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
 
 def _fetch_url_text(url: str, timeout: float = 8.0) -> str:
     try:
+        _validate_url_safe(url)
+    except ValueError as exc:
+        log.warning("URL validation failed for %s: %s", url, exc)
+        return ""
+    try:
+        opener = urllib.request.build_opener(_NoRedirectHandler)
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (JobCannon)"})
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with opener.open(req, timeout=timeout) as resp:
             return resp.read(600_000).decode("utf-8", errors="ignore")
     except Exception as exc:  # network/HTTP errors are non-fatal
         log.info("Could not fetch apply link %s (%s).", url, exc)

@@ -10,7 +10,7 @@ import AuthModal from "./AuthModal";
 const enter = {
   initial: { y: -24, opacity: 0 },
   animate: { y: 0, opacity: 1 },
-  transition: { duration: 0.6, ease: "easeOut" },
+  transition: { duration: 0.6, ease: "easeOut" as const },
 };
 
 export default function Navbar() {
@@ -33,7 +33,7 @@ export default function Navbar() {
           </a>
           <div className="hidden items-center gap-8 text-sm text-white/70 md:flex">
             <a href="#how" className="transition-colors hover:text-white">How it works</a>
-            <a href="#agents" className="transition-colors hover:text-white">Agents</a>
+            <a id="nav-agents" href="#agents" className="transition-colors hover:text-white">Agents</a>
             <a href="#run" className="transition-colors hover:text-white">Try it</a>
             <Link href="/dashboard" className="inline-flex items-center gap-1.5 transition-colors hover:text-white">
               <LayoutDashboard className="h-4 w-4" /> Dashboard

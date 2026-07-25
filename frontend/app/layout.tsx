@@ -2,11 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth";
-import dynamic from "next/dynamic";
-
-const ErrorLogger = dynamic(() => import("@/components/ErrorLogger"), {
-  ssr: false,
-});
+import ErrorLogger from "@/components/ErrorLogger";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const grotesk = Space_Grotesk({

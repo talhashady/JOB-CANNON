@@ -13,6 +13,7 @@ def _isolated_db(monkeypatch, tmp_path):
     """Point each test at its own sqlite file and reset cached singletons."""
     db_file = tmp_path / "test.db"
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{db_file}")
+    monkeypatch.setenv("DEMO_MODE", "true")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
 
     from career_assistant import config

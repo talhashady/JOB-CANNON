@@ -39,7 +39,7 @@ class ApplicationAgent(BaseAgent):
             status=ApplicationStatus.QUEUED,
         )
 
-        gate = self.rate_limiter.check(job.source)
+        gate = self.rate_limiter.check(job.source, user_id=user_id)
         if not gate.passed:
             app.status = ApplicationStatus.RATE_LIMITED
             app.notes.extend(gate.issues)

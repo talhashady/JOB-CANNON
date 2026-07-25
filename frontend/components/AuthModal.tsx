@@ -10,7 +10,7 @@ const panel = {
   initial: { y: 24, opacity: 0, scale: 0.98 },
   animate: { y: 0, opacity: 1, scale: 1 },
   exit: { y: 24, opacity: 0, scale: 0.98 },
-  transition: { duration: 0.25, ease: "easeOut" },
+  transition: { duration: 0.25, ease: "easeOut" as const },
 };
 
 export default function AuthModal({
@@ -57,17 +57,18 @@ export default function AuthModal({
           <motion.div
             {...panel}
             onClick={(e) => e.stopPropagation()}
-            className="glass-strong relative w-full max-w-md rounded-2xl p-7 shadow-glow"
+            className="glass-strong relative w-full max-w-md rounded-2xl p-7 pt-10 shadow-glow"
           >
             <button
+              type="button"
               onClick={onClose}
-              className="absolute right-4 top-4 text-white/50 transition-colors hover:text-white"
+              className="absolute right-4 top-4 z-10 rounded-lg p-1 text-white/50 transition-colors hover:bg-white/10 hover:text-white"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
             </button>
 
-            <div className="mb-6 flex items-center gap-2">
+            <div className="mb-7 flex items-center gap-3 pr-8">
               <span className="grid h-9 w-9 place-items-center rounded-xl bg-gradient-to-br from-neon-violet to-neon-cyan shadow-glow">
                 <Sparkles className="h-4 w-4 text-white" />
               </span>

@@ -36,4 +36,4 @@ export default function MatchRing({ score }: { score: number }) {
 
 const ringStart = { strokeDashoffset: 2 * Math.PI * 26 };
 const ringEnd = (offset: number) => ({ strokeDashoffset: offset });
-const ringTransition = { duration: 1, ease: "easeOut" };
+const ringTransition = { duration: 1, ease: "easeOut" as const };

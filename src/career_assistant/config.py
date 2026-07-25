@@ -69,11 +69,16 @@ class Settings:
     jwt_expire_hours: int = field(default_factory=lambda: _int("JWT_EXPIRE_HOURS", 168))
 
     allow_live_apply: bool = field(default_factory=lambda: _bool("ALLOW_LIVE_APPLY", False))
+    # When True, scrape failures return hard-coded sample jobs instead of raising.
+    # Use only for local development and demos.
+    demo_mode: bool = field(default_factory=lambda: _bool("DEMO_MODE", False))
     # Per-platform applications allowed per day. Raised to support high-volume
     # campaigns (50+/day). Each job board counts separately.
     daily_application_cap: int = field(default_factory=lambda: _int("DAILY_APPLICATION_CAP", 75))
     # Default minimum match score (0..1) required before auto-apply submits.
     auto_apply_min_score: float = field(default_factory=lambda: _float("AUTO_APPLY_MIN_SCORE", 0.6))
+    # Default minimum skill match score (0..1) required before auto-apply submits.
+    auto_apply_min_skill_score: float = field(default_factory=lambda: _float("AUTO_APPLY_MIN_SKILL_SCORE", 0.5))
 
     default_job_sites: List[str] = field(default_factory=lambda: _list("DEFAULT_JOB_SITES", ["indeed"]))
     max_results_per_search: int = field(default_factory=lambda: min(_int("MAX_RESULTS_PER_SEARCH", 250), 1000))
@@ -85,6 +90,10 @@ class Settings:
     llm_min_interval_s: float = field(default_factory=lambda: _float("LLM_MIN_INTERVAL_S", 0.0))
     # How many times the OpenAI client retries a 429/5xx before giving up.
     llm_max_retries: int = field(default_factory=lambda: _int("LLM_MAX_RETRIES", 5))
+
+    # Optional allowlist of domains that _fetch_url_text may contact when
+    # scanning job postings for an apply email.  Empty = any HTTPS domain allowed.
+    allowed_fetch_domains: List[str] = field(default_factory=lambda: _list("ALLOWED_FETCH_DOMAINS", []))
 
     log_level: str = field(default_factory=lambda: os.environ.get("LOG_LEVEL", "INFO"))
 
