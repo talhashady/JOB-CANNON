@@ -24,32 +24,47 @@ if (!_raw && typeof window !== "undefined" && process.env.NODE_ENV === "producti
 }
 const BASE = (_raw ?? "http://localhost:8000").replace(/\/+$/, "");
 
+const TOKEN_KEY = "careeros_jwt";
+
 function getToken(): string | null {
-  // Auth state is held in HttpOnly cookie managed by browser/backend.
-  return "cookie";
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(TOKEN_KEY);
 }
-function setToken(_token?: string): void {
-  // Token is set in HttpOnly cookie by backend. No-op on frontend.
+
+function setToken(token?: string): void {
+  if (typeof window === "undefined") return;
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+  }
 }
+
 function clearToken(): void {
-  // Tell backend to clear the HttpOnly cookie.
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(TOKEN_KEY);
+  }
   fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
 }
 
 /**
  * Core request helper.
  * - Sets JSON content-type only for non-FormData bodies (so file uploads work).
+ * - Attaches Authorization Bearer token header if token is stored in localStorage.
  * - Adds a 30-second timeout via AbortController (handles backend cold-start).
  * - Retries once on network failure with a 2-second backoff.
- * - On ANY failure (network or HTTP) it logs the RAW error with full context
- *   (operation + url + raw error) and rethrows the raw error - nothing hidden.
  */
 async function http<T>(operation: string, path: string, init?: RequestInit): Promise<T> {
   const url = `${BASE}${path}`;
   const method = (init && init.method) || "GET";
-  const where = `${method} ${path}`;  // Use path only, not full URL (privacy)
+  const where = `${method} ${path}`; // Use path only, not full URL (privacy)
 
   const headers: Record<string, string> = { ...((init && (init.headers as Record<string, string>)) || {}) };
+  const token = getToken();
+  if (token && !headers["Authorization"]) {
+    headers["Authorization"] = `Bearer ${token}`;
+  }
+
   const isForm = typeof FormData !== "undefined" && init?.body instanceof FormData;
   if (init?.body && !isForm && !headers["Content-Type"]) {
     headers["Content-Type"] = "application/json";
@@ -120,11 +135,23 @@ export const api = {
   health: () => http<HealthResponse>("Health check", "/health"),
 
   // --- auth ---
-  signup: (body: { email: string; password: string; full_name: string }) =>
-    http<{ user: PublicUser }>("Sign up", "/auth/signup", { method: "POST", body: JSON.stringify(body) }),
+  signup: async (body: { email: string; password: string; full_name: string }) => {
+    const res = await http<{ user: PublicUser; token?: string }>("Sign up", "/auth/signup", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (res.token) setToken(res.token);
+    return res;
+  },
 
-  login: (body: { email: string; password: string }) =>
-    http<{ user: PublicUser }>("Log in", "/auth/login", { method: "POST", body: JSON.stringify(body) }),
+  login: async (body: { email: string; password: string }) => {
+    const res = await http<{ user: PublicUser; token?: string }>("Log in", "/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    if (res.token) setToken(res.token);
+    return res;
+  },
 
   me: () => http<PublicUser>("Load current user", "/auth/me"),
 

@@ -79,4 +79,5 @@ class AuthResponse(BaseModel):
 
 class AuthSuccessResponse(BaseModel):
     user: PublicUser
+    token: Optional[str] = None
 

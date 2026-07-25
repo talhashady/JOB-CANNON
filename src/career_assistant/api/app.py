@@ -320,7 +320,7 @@ def signup(req: SignupRequest, request: Request, response: Response) -> AuthSucc
         max_age=_settings.jwt_expire_hours * 3600,
         **_cookie_kwargs(request),
     )
-    return AuthSuccessResponse(user=user.public())
+    return AuthSuccessResponse(user=user.public(), token=token)
 
 
 @app.post("/auth/login", response_model=AuthSuccessResponse)
@@ -338,7 +338,7 @@ def login(req: LoginRequest, request: Request, response: Response) -> AuthSucces
         max_age=_settings.jwt_expire_hours * 3600,
         **_cookie_kwargs(request),
     )
-    return AuthSuccessResponse(user=user.public())
+    return AuthSuccessResponse(user=user.public(), token=token)
 
 
 @app.post("/auth/logout")
