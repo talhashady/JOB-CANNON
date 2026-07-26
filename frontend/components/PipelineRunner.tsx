@@ -46,13 +46,135 @@ function parseCvTextClient(text: string) {
   const lower = text.toLowerCase();
 
   const titleMatches = [
+    // ── Software / IT ──────────────────────────────────────────
     "full stack engineer", "fullstack developer", "full stack developer",
     "backend engineer", "backend developer", "frontend engineer", "frontend developer",
     "software engineer", "software developer", "python developer", "python engineer",
     "java developer", "react developer", "node.js developer", "node developer",
     "devops engineer", "cloud engineer", "data engineer", "data scientist",
     "data analyst", "product manager", "project manager", "qa engineer",
-    "ui/ux designer", "machine learning engineer", "ai engineer", "system architect"
+    "ui/ux designer", "machine learning engineer", "ai engineer", "system architect",
+    "solutions architect", "site reliability engineer", "security engineer",
+    "cybersecurity analyst", "network engineer", "database administrator",
+    "systems administrator", "it manager", "it director", "technical lead",
+    "engineering manager", "scrum master", "business intelligence analyst",
+    "etl developer", "salesforce developer", "sap consultant", "erp consultant",
+    "ios developer", "android developer", "mobile developer", "game developer",
+    "embedded engineer", "firmware engineer", "blockchain developer",
+    "test engineer", "automation engineer", "qa lead",
+    // ── Mechanical / Maintenance / Industrial ──────────────────
+    "mechanical engineer", "mechanical supervisor", "maintenance supervisor",
+    "maintenance engineer", "maintenance manager", "maintenance planner",
+    "plant supervisor", "plant manager", "plant engineer",
+    "reliability engineer", "rotating equipment engineer",
+    "piping engineer", "piping supervisor", "piping designer",
+    "static equipment engineer", "pressure vessel engineer",
+    "hvac engineer", "hvac technician", "hvac supervisor",
+    "mechanical foreman", "mechanical technician", "mechanical fitter",
+    "millwright", "machinist", "cnc operator", "cnc programmer",
+    "tool and die maker", "mold designer",
+    "shutdown supervisor", "turnaround manager", "turnaround planner",
+    "commissioning engineer", "commissioning manager",
+    "condition monitoring engineer", "vibration analyst",
+    "lubrication engineer", "tribologist",
+    // ── Electrical / Instrumentation / Controls ────────────────
+    "electrical engineer", "electrical supervisor", "electrical foreman",
+    "electrical technician", "electrical designer",
+    "instrumentation engineer", "instrumentation technician",
+    "control systems engineer", "control room operator",
+    "plc programmer", "scada engineer", "dcs engineer",
+    "power systems engineer", "substation engineer",
+    "telecom engineer", "fiber optic technician",
+    // ── Civil / Structural / Construction ──────────────────────
+    "civil engineer", "structural engineer", "construction manager",
+    "construction supervisor", "site supervisor", "site engineer",
+    "quantity surveyor", "estimator", "cost engineer",
+    "project engineer", "project coordinator", "project controller",
+    "land surveyor", "geotechnical engineer",
+    "urban planner", "town planner", "landscape architect",
+    "building inspector", "clerk of works",
+    "road engineer", "highway engineer", "bridge engineer",
+    "water engineer", "wastewater engineer", "drainage engineer",
+    // ── Chemical / Process / Oil & Gas ─────────────────────────
+    "chemical engineer", "process engineer", "process supervisor",
+    "production engineer", "production supervisor", "production manager",
+    "refinery operator", "field operator", "panel operator",
+    "petroleum engineer", "reservoir engineer", "drilling engineer",
+    "completions engineer", "subsea engineer", "pipeline engineer",
+    "corrosion engineer", "materials engineer", "metallurgist",
+    "lab technician", "lab manager", "chemist", "quality chemist",
+    // ── HSE / Quality / Compliance ─────────────────────────────
+    "hse officer", "hse manager", "hse advisor", "hse coordinator",
+    "safety officer", "safety manager", "safety engineer", "safety advisor",
+    "fire safety officer", "fire engineer",
+    "environmental engineer", "environmental officer", "environmental manager",
+    "quality engineer", "quality manager", "quality inspector",
+    "quality assurance engineer", "quality control engineer",
+    "qa/qc manager", "qa/qc engineer", "qa/qc inspector",
+    "welding inspector", "ndt inspector", "ndt technician",
+    "coating inspector", "painting inspector",
+    "compliance officer", "regulatory affairs",
+    "auditor", "lead auditor", "internal auditor",
+    // ── Operations / Supply Chain / Logistics ──────────────────
+    "operations manager", "operations supervisor", "operations director",
+    "shift supervisor", "shift manager", "shift lead",
+    "warehouse manager", "warehouse supervisor",
+    "supply chain manager", "supply chain analyst",
+    "logistics manager", "logistics coordinator",
+    "procurement manager", "procurement officer", "buyer",
+    "inventory manager", "inventory controller",
+    "fleet manager", "transport manager", "dispatch manager",
+    "import export manager", "customs officer",
+    // ── Finance / Accounting ───────────────────────────────────
+    "accountant", "financial analyst", "financial controller", "financial manager",
+    "finance director", "cfo", "treasurer",
+    "tax consultant", "tax advisor",
+    "bookkeeper", "credit analyst", "risk analyst", "investment analyst",
+    "actuary", "underwriter", "claims adjuster",
+    // ── Marketing / Sales / Business Development ───────────────
+    "marketing manager", "marketing director", "marketing coordinator",
+    "digital marketing", "seo specialist", "content marketing",
+    "social media manager", "brand manager", "communications manager",
+    "sales manager", "sales director", "sales executive",
+    "business development manager", "account manager", "key account manager",
+    "sales engineer", "pre-sales consultant", "territory manager",
+    "real estate agent", "property manager",
+    // ── Human Resources / Admin ────────────────────────────────
+    "hr manager", "hr director", "hr coordinator", "hr generalist",
+    "hr business partner", "talent acquisition", "recruiter",
+    "training manager", "office manager", "executive assistant",
+    // ── Healthcare / Medical ───────────────────────────────────
+    "nurse", "registered nurse", "nurse practitioner", "nurse manager",
+    "physician", "doctor", "surgeon", "anesthesiologist",
+    "pharmacist", "pharmacy manager", "pharmacy technician",
+    "medical technologist", "radiographer",
+    "physiotherapist", "occupational therapist", "speech therapist",
+    "dentist", "dental hygienist", "optometrist",
+    "paramedic", "medical officer", "health inspector",
+    // ── Education / Training ───────────────────────────────────
+    "teacher", "lecturer", "professor", "instructor",
+    "principal", "headmaster", "dean", "academic director",
+    "curriculum developer", "instructional designer",
+    // ── Legal ──────────────────────────────────────────────────
+    "lawyer", "attorney", "solicitor", "barrister",
+    "legal counsel", "corporate counsel", "general counsel",
+    "paralegal", "legal assistant", "contract manager",
+    // ── Architecture / Design ──────────────────────────────────
+    "architect", "interior designer", "urban designer",
+    "bim modeler", "bim manager", "bim coordinator",
+    "cad technician", "cad designer", "drafting technician",
+    // ── Automotive / Aerospace / Marine ────────────────────────
+    "automotive engineer", "vehicle engineer",
+    "aerospace engineer", "avionics engineer", "aircraft mechanic",
+    "marine engineer", "naval architect",
+    // ── Mining / Agriculture ───────────────────────────────────
+    "mining engineer", "mine supervisor", "mine manager",
+    "geologist", "mineral processing engineer",
+    "agricultural engineer", "agronomist", "farm manager",
+    // ── Hospitality / Food & Beverage ──────────────────────────
+    "hotel manager", "restaurant manager", "chef", "executive chef",
+    "sous chef", "food and beverage manager",
+    "front desk manager", "housekeeping manager", "event manager",
   ];
 
   let detectedTitle = "";
@@ -66,8 +188,8 @@ function parseCvTextClient(text: string) {
   if (!detectedTitle) {
     const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
     for (const line of lines.slice(0, 5)) {
-      if (/\b(engineer|developer|architect|analyst|specialist|manager|lead|consultant)\b/i.test(line) && line.length < 50) {
-        detectedTitle = line.replace(/^(senior|junior|lead|principal|staff)\s+/i, "");
+      if (/\b(engineer|developer|architect|analyst|specialist|manager|lead|consultant|supervisor|officer|inspector|technician|foreman|planner|designer|operator)\b/i.test(line) && line.length < 60) {
+        detectedTitle = line.replace(/^(senior|junior|lead|principal|staff|chief|head|deputy|assistant)\s+/i, "");
         break;
       }
     }
@@ -75,16 +197,55 @@ function parseCvTextClient(text: string) {
 
   if (!detectedTitle) detectedTitle = "software engineer";
 
+  // Strip seniority prefix for broader job board search
+  const searchQuery = detectedTitle
+    .replace(/^(senior|junior|lead|principal|staff|chief|head|deputy|assistant)\s+/i, "")
+    .toLowerCase();
+
   const commonSkills = [
+    // Software / IT
     "python", "javascript", "typescript", "react", "next.js", "node.js", "vue", "angular",
     "java", "c++", "c#", "go", "golang", "rust", "sql", "postgresql", "mysql", "mongodb",
     "redis", "docker", "kubernetes", "aws", "azure", "gcp", "fastapi", "django", "flask",
-    "express", "tailwind", "html", "css", "git", "linux", "rest api", "graphql", "ci/cd"
+    "express", "tailwind", "html", "css", "git", "linux", "rest api", "graphql", "ci/cd",
+    "power bi", "tableau", "jira", "salesforce",
+    // Mechanical / Industrial
+    "autocad", "solidworks", "catia", "ansys", "matlab", "p&id", "hvac",
+    "piping", "rotating equipment", "welding", "fabrication", "machining", "cnc",
+    "cmms", "sap", "maximo", "ndt", "nde",
+    "preventive maintenance", "predictive maintenance", "condition monitoring",
+    "vibration analysis", "shutdown", "turnaround", "commissioning",
+    "rcm", "fmea", "root cause analysis",
+    "api-510", "api-570", "asme",
+    // Electrical / Instrumentation
+    "plc", "scada", "dcs", "hmi", "instrumentation", "calibration",
+    "siemens", "abb", "schneider", "honeywell", "yokogawa", "emerson",
+    "switchgear", "transformers", "vfd",
+    // Civil / Construction
+    "revit", "tekla", "staad pro", "etabs", "primavera", "ms project",
+    "quantity surveying", "structural analysis", "reinforced concrete",
+    "geotechnical", "surveying", "gis",
+    // Chemical / Process / Oil & Gas
+    "hysys", "aspen plus", "process simulation", "hazop",
+    "pipeline", "corrosion", "reservoir", "drilling",
+    // HSE / Quality
+    "hse", "safety", "osha", "nebosh", "iosh",
+    "iso 9001", "iso 14001", "iso 45001",
+    "six sigma", "lean", "kaizen", "5s", "tpm",
+    "quality control", "quality assurance", "audit",
+    // Project Management
+    "project management", "pmp", "prince2", "agile", "scrum",
+    // Finance
+    "financial analysis", "budgeting", "forecasting",
+    "gaap", "ifrs", "quickbooks", "xero",
+    // General
+    "oracle", "erp", "excel", "powerpoint",
+    "leadership", "communication", "technical writing",
   ];
 
   const foundSkills: string[] = [];
   for (const skill of commonSkills) {
-    const regex = new RegExp(`\\b${skill.replace(".", "\\.")}\\b`, "i");
+    const regex = new RegExp(`\\b${skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
     if (regex.test(text)) {
       foundSkills.push(skill);
     }
@@ -94,7 +255,7 @@ function parseCvTextClient(text: string) {
   const years = expMatch ? `${expMatch[1]}+ years` : "";
 
   const capitalizedTitle = detectedTitle.replace(/\b\w/g, (l) => l.toUpperCase());
-  const topSkillsStr = foundSkills.slice(0, 5).join(", ");
+  const topSkillsStr = foundSkills.slice(0, 6).join(", ");
 
   let generatedGoal = `Advance my career as a ${capitalizedTitle}`;
   if (years) generatedGoal += ` leveraging ${years} of experience`;
@@ -104,7 +265,7 @@ function parseCvTextClient(text: string) {
   return {
     title: detectedTitle,
     goals: generatedGoal,
-    query: detectedTitle.toLowerCase(),
+    query: searchQuery,
     skills: foundSkills,
   };
 }
@@ -117,7 +278,7 @@ export default function PipelineRunner() {
   const [query, setQuery] = useState("");
   const [location, setLocation] = useState("Remote");
   const [sites, setSites] = useState<string[]>(["indeed"]);
-  const [workArrangement, setWorkArrangement] = useState<Arrangement>("remote");
+  const [workArrangement, setWorkArrangement] = useState<Arrangement>("any");
   const [jobCount, setJobCount] = useState(80);
   const [topK, setTopK] = useState(10);
   const [autoApply, setAutoApply] = useState(false);
