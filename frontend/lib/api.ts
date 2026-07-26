@@ -51,10 +51,14 @@ function clearToken(): void {
  * Core request helper.
  * - Sets JSON content-type only for non-FormData bodies (so file uploads work).
  * - Attaches Authorization Bearer token header if token is stored in localStorage.
- * - Adds a 30-second timeout via AbortController (handles backend cold-start).
+ * - Dynamic timeout: 180s for uploads/long ops, 60s for standard requests.
  * - Retries once on network failure with a 2-second backoff.
  */
-async function http<T>(operation: string, path: string, init?: RequestInit): Promise<T> {
+interface RequestOptions extends RequestInit {
+  timeoutMs?: number;
+}
+
+async function http<T>(operation: string, path: string, init?: RequestOptions): Promise<T> {
   const url = `${BASE}${path}`;
   const method = (init && init.method) || "GET";
   const where = `${method} ${path}`; // Use path only, not full URL (privacy)
@@ -74,9 +78,13 @@ async function http<T>(operation: string, path: string, init?: RequestInit): Pro
     headers["X-Requested-With"] = "XMLHttpRequest";
   }
 
+  // Extended 180s (3 min) timeout for uploads and background tasks, 60s for standard endpoints
+  const isLongOp = path.includes("/upload") || path.includes("/run") || path.includes("/auto-apply");
+  const timeoutMs = init?.timeoutMs ?? (isLongOp ? 180_000 : 60_000);
+
   const doFetch = async (): Promise<Response> => {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30_000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
       return await fetch(url, {
         ...init,
@@ -100,8 +108,11 @@ async function http<T>(operation: string, path: string, init?: RequestInit): Pro
       res = await doFetch();
     } catch (retryErr) {
       logError(`${operation} (network)`, where, retryErr);
-      // Surface a friendlier message than the raw "Failed to fetch" TypeError.
+      // Surface a friendlier message than raw AbortError / TypeError
       const raw = retryErr instanceof Error ? retryErr : new Error(String(retryErr));
+      if (raw.name === "AbortError" || /aborted/i.test(raw.message)) {
+        throw new Error("Document processing timed out. Please try again or upload a smaller file.");
+      }
       if (raw.name === "TypeError" || /failed to fetch/i.test(raw.message)) {
         throw new Error("Could not reach the server \u2014 check your connection or try again in a few seconds.");
       }
