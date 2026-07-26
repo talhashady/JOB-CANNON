@@ -100,14 +100,19 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 
 class CredentialsCORSFix:
-    """ASGI middleware that ensures preflight responses include allow-credentials."""
+    """ASGI middleware that ensures ALL cross-origin responses include allow-credentials.
+
+    Starlette's CORSMiddleware sometimes omits `access-control-allow-credentials: true`
+    on preflight AND actual responses. Browsers demand this header on every credentialed
+    cross-origin response or they reject the response body with "Failed to fetch".
+    """
 
     def __init__(self, app: ASGIApp, allowed_origins: set[str] | None = None) -> None:
         self.app = app
         self.allowed_origins = allowed_origins or set()
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or scope.get("method") != "OPTIONS":
+        if scope["type"] != "http":
             await self.app(scope, receive, send)
             return
 
@@ -125,7 +130,7 @@ class CredentialsCORSFix:
             or origin.startswith("http://127.0.0.1")
         )
 
-        if not is_allowed:
+        if not is_allowed or not origin:
             await self.app(scope, receive, send)
             return
 
@@ -133,8 +138,13 @@ class CredentialsCORSFix:
         async def patched_send(message):
             if message["type"] == "http.response.start":
                 headers = list(message.get("headers", []))
+                # Remove any existing credentials header to avoid duplicates
                 headers = [(k, v) for k, v in headers if k.lower() != b"access-control-allow-credentials"]
                 headers.append((b"access-control-allow-credentials", b"true"))
+                # Also ensure the origin is reflected (not just for preflights)
+                has_origin = any(k.lower() == b"access-control-allow-origin" for k, v in headers)
+                if not has_origin:
+                    headers.append((b"access-control-allow-origin", origin.encode()))
                 message = {**message, "headers": headers}
             await send(message)
 

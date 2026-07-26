@@ -14,7 +14,7 @@ import { logError } from "./logger";
 // In production, crash early if the env var is missing instead of silently
 // calling localhost:8000 from the deployed site (which causes "Failed to fetch").
 // Guard only runs in the browser — SSG prerendering doesn't need the API URL.
-const _raw = process.env.NEXT_PUBLIC_API_URL;
+const _raw = (process.env.NEXT_PUBLIC_API_URL ?? "").trim();
 if (!_raw && typeof window !== "undefined" && process.env.NODE_ENV === "production") {
   throw new Error(
     "NEXT_PUBLIC_API_URL is not set. " +
@@ -22,7 +22,7 @@ if (!_raw && typeof window !== "undefined" && process.env.NODE_ENV === "producti
       "and redeploy."
   );
 }
-const BASE = (_raw ?? "http://localhost:8000").replace(/\/+$/, "");
+const BASE = (_raw || "http://localhost:8000").replace(/\/+$/, "");
 
 const TOKEN_KEY = "careeros_jwt";
 
