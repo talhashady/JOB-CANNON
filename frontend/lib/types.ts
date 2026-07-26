@@ -178,6 +178,30 @@ export interface AutoApplyResult {
 }
 
 
+export interface DiscoveryMatch {
+  job: Job;
+  match: MatchResult;
+}
+
+export interface DiscoveryResult {
+  user_id: string;
+  query: string;
+  data_source?: string;
+  is_demo?: boolean;
+  scrape_warning?: string | null;
+  jobs_scraped: number;
+  jobs_verified: number;
+  matches: DiscoveryMatch[];
+  agent_chain: { agent: string; summary?: string; note?: string; [k: string]: unknown }[];
+  elapsed_s: number;
+}
+
+export interface PrepareParams {
+  job_ids: string[];
+  auto_apply: boolean;
+  confirm_live_apply?: boolean;
+}
+
 export interface HealthResponse {
   status: string;
   llm_enabled: boolean;
@@ -185,3 +209,4 @@ export interface HealthResponse {
   smtp_configured?: boolean;
   default_sites?: string[];
 }
+

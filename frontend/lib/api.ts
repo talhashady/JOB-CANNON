@@ -4,6 +4,7 @@ import type {
   AutoApplyResult,
   HealthResponse,
   PipelineResult,
+  PrepareParams,
   PublicUser,
   RunParams,
   UserProfile,
@@ -184,8 +185,15 @@ export const api = {
   run: (params: RunParams) =>
     http<{ task_id: string }>("Run pipeline", "/run", { method: "POST", body: JSON.stringify(params) }),
 
-  pollTask: (taskId: string) =>
-    http<{ status: string; result: PipelineResult | null; error: string | null }>("Poll task status", `/run/${taskId}`),
+  runDiscover: (params: RunParams) =>
+    http<{ task_id: string }>("Discover jobs", "/run/discover", { method: "POST", body: JSON.stringify(params) }),
+
+  runPrepare: (params: PrepareParams) =>
+    http<{ task_id: string }>("Prepare documents", "/run/prepare", { method: "POST", body: JSON.stringify(params) }),
+
+  pollTask: <T = PipelineResult>(taskId: string) =>
+    http<{ status: string; result: T | null; error: string | null }>("Poll task status", `/run/${taskId}`),
+
 
   autoApply: (params: AutoApplyParams) =>
     http<AutoApplyResult>("Auto-apply", "/auto-apply", {

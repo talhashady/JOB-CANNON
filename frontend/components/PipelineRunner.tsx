@@ -2,13 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, Play, Sparkles, AlertCircle, Upload } from "lucide-react";
+import { Loader2, Play, Sparkles, AlertCircle, Upload, CheckSquare, Square, ArrowRight } from "lucide-react";
 import { api } from "@/lib/api";
-import type { PipelineResult, UserProfile } from "@/lib/types";
+import type { DiscoveryResult, PipelineResult, UserProfile } from "@/lib/types";
 import { useAuth } from "@/lib/auth";
 import { logStep, logSuccess } from "@/lib/logger";
 import AgentFlow from "./AgentFlow";
 import JobResultCard from "./JobResultCard";
+import JobSelectCard from "./JobSelectCard";
 import CvDropzone from "./CvDropzone";
 import AuthModal from "./AuthModal";
 
@@ -22,17 +23,8 @@ const WORK_ARRANGEMENTS: { value: Arrangement; label: string }[] = [
   { value: "onsite", label: "On-site" },
 ];
 
-// Labels used for the live "agent started" log lines (mirrors the AgentFlow stepper).
-const AGENT_STEPS = [
-  "Scraper Agent",
-  "Verification Agent",
-  "Matching Agent",
-  "Resume Agent",
-  "Cover Letter Agent",
-  "Skill Gap Agent",
-  "Interview Prep Agent",
-  "Application Agent",
-];
+const PHASE1_STEPS = ["Scraper Agent", "Verification Agent", "Matching Agent"];
+const PHASE2_STEPS = ["Resume Agent", "Cover Letter Agent", "Skill Gap Agent", "Interview Prep Agent", "Application Agent"];
 
 const results = {
   hidden: {},
@@ -127,21 +119,27 @@ export default function PipelineRunner() {
   const [sites, setSites] = useState<string[]>(["indeed"]);
   const [workArrangement, setWorkArrangement] = useState<Arrangement>("remote");
   const [jobCount, setJobCount] = useState(80);
-  const [topK, setTopK] = useState(25);
+  const [topK, setTopK] = useState(10);
   const [autoApply, setAutoApply] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState(0);
+  const [phase, setPhase] = useState<"idle" | "discovering" | "selection" | "preparing" | "complete">("idle");
   const [error, setError] = useState<string | null>(null);
+
+  // Phase 1 Discovery results & user selections
+  const [discoveryResult, setDiscoveryResult] = useState<DiscoveryResult | null>(null);
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
+
+  // Phase 2 Final Pipeline recommendations
   const [result, setResult] = useState<PipelineResult | null>(null);
+
   const [authOpen, setAuthOpen] = useState(false);
 
-  // Clear any auth-related error once the user signs in.
   useEffect(() => {
     if (user) setError(null);
   }, [user]);
 
-  // Debounced auto-update of Career Goals and Role/Keywords when user stops typing in CV box (800ms)
   useEffect(() => {
     if (!cv || cv.trim().length < 15) return;
 
@@ -162,7 +160,6 @@ export default function PipelineRunner() {
   }
 
   function applyParsedProfile(p: UserProfile) {
-    // Fill the "Your CV" box with the LLM-generated summary of the whole CV.
     if (p.summary && p.summary.trim()) {
       setCv(p.summary.trim());
       logSuccess("CV summary loaded into the CV box");
@@ -177,8 +174,52 @@ export default function PipelineRunner() {
     setQuery(mainRole.toLowerCase());
   }
 
-  async function run() {
-    // Require sign-in before scraping; open the login modal silently.
+  function toggleJobSelection(jobId: string) {
+    setSelectedJobIds((prev) =>
+      prev.includes(jobId) ? prev.filter((id) => id !== jobId) : [...prev, jobId]
+    );
+  }
+
+  function toggleSelectAll() {
+    if (!discoveryResult) return;
+    const allIds = discoveryResult.matches.map((m) => m.job.id);
+    if (selectedJobIds.length === allIds.length) {
+      setSelectedJobIds([]);
+    } else {
+      setSelectedJobIds(allIds);
+    }
+  }
+
+  // Helper for background task polling with 10 min max timeout (300 polls x 2s)
+  async function pollUntilDone<T>(taskId: string): Promise<T> {
+    let taskDone = false;
+    let finalResult: T | null = null;
+    const MAX_POLLS = 300; // 300 x 2s = 10 minutes max
+    let pollCount = 0;
+
+    while (!taskDone) {
+      if (pollCount >= MAX_POLLS) {
+        throw new Error("Pipeline timed out after 10 minutes. The server may have restarted — please try again.");
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      pollCount++;
+      const statusRes = await api.pollTask<T>(taskId);
+      if (statusRes.status === "done") {
+        finalResult = statusRes.result;
+        taskDone = true;
+      } else if (statusRes.status === "error") {
+        throw new Error(statusRes.error || "Background task failed.");
+      }
+    }
+
+    if (!finalResult) {
+      throw new Error("No pipeline result returned from server.");
+    }
+    return finalResult;
+  }
+
+  // Phase 1: Job Discovery (Scrape -> Verify -> Match)
+  async function runDiscovery() {
     if (!user) {
       setAuthOpen(true);
       return;
@@ -190,21 +231,23 @@ export default function PipelineRunner() {
     }
 
     setLoading(true);
+    setPhase("discovering");
     setError(null);
+    setDiscoveryResult(null);
     setResult(null);
+    setSelectedJobIds([]);
     setStep(0);
+
     logStep(
-      `Pipeline run started - query: "${query}", location: "${location}", ` +
-        `scan ${jobCount}/board on ${(sites.length ? sites : ["indeed"]).join(", ")}` +
-        (autoApply ? `, auto-apply to top ${topK}` : "")
+      `Phase 1 Discovery started - query: "${query}", location: "${location}", ` +
+        `scan ${jobCount}/board on ${(sites.length ? sites : ["indeed"]).join(", ")}`
     );
 
-    // Optimistic stepper + live "agent started" logs while the request is in flight.
-    const timers = AGENT_STEPS.map((name, i) =>
+    const timers = PHASE1_STEPS.map((name, i) =>
       setTimeout(() => {
         setStep(i + 1);
         logStep(`Agent started - ${name}`);
-      }, 350 * (i + 1))
+      }, 400 * (i + 1))
     );
 
     try {
@@ -212,8 +255,8 @@ export default function PipelineRunner() {
       await api.createProfile(cv, goals);
       logSuccess("Profile saved");
 
-      logStep("Dispatching job to the agent pipeline...");
-      const startRes = await api.run({
+      logStep("Dispatching discovery job to agent pipeline...");
+      const startRes = await api.runDiscover({
         query,
         location,
         sites: sites.length ? sites : ["indeed"],
@@ -225,49 +268,89 @@ export default function PipelineRunner() {
       });
 
       const taskId = startRes.task_id;
-      logStep(`Job dispatched. Task ID: ${taskId}. Processing background run...`);
+      logStep(`Discovery task dispatched (ID: ${taskId}). Finding and matching jobs...`);
 
-      let taskDone = false;
-      let finalResult: PipelineResult | null = null;
-      const MAX_POLLS = 150; // 150 × 2s = 5 minutes max
-      let pollCount = 0;
-
-      while (!taskDone) {
-        if (pollCount >= MAX_POLLS) {
-          throw new Error("Pipeline timed out after 5 minutes. The server may have restarted — please try again.");
-        }
-        await new Promise((resolve) => setTimeout(resolve, 2000));
-        pollCount++;
-        const statusRes = await api.pollTask(taskId);
-        if (statusRes.status === "done") {
-          finalResult = statusRes.result;
-          taskDone = true;
-        } else if (statusRes.status === "error") {
-          throw new Error(statusRes.error || "Background task failed.");
-        }
-      }
-
-      if (!finalResult) {
-        throw new Error("No pipeline result returned from server.");
-      }
-
-      // Clear the optimistic timers
+      const res = await pollUntilDone<DiscoveryResult>(taskId);
       timers.forEach(clearTimeout);
 
-      // Log the real completion of each agent from the returned audit trail.
-      for (const s of finalResult.agent_chain || []) {
+      for (const s of res.agent_chain || []) {
         const note = (s.summary as string) || (s.note as string) || "";
         logSuccess(`Agent complete - ${s.agent}${note ? " - " + note : ""}`);
       }
+
       logSuccess(
-        `Pipeline complete in ${finalResult.elapsed_s}s - ${finalResult.recommendations.length} matches, ${finalResult.jobs_scraped} scraped, ${finalResult.jobs_verified} verified`
+        `Phase 1 complete in ${res.elapsed_s}s - ${res.matches.length} top matches found out of ${res.jobs_verified} verified.`
       );
 
-      setResult(finalResult);
-      setStep(9);
+      setDiscoveryResult(res);
+      // Auto-select top matches by default (up to 5)
+      const initialSelected = res.matches.slice(0, 5).map((m) => m.job.id);
+      setSelectedJobIds(initialSelected);
+      setStep(4);
+      setPhase("selection");
     } catch (e) {
-      // The api client already logged the RAW error (operation + url + raw message).
       setError(e instanceof Error ? e.message : String(e));
+      setPhase("idle");
+    } finally {
+      timers.forEach(clearTimeout);
+      setLoading(false);
+    }
+  }
+
+  // Phase 2: Document Generation & Application (Resume -> Cover -> Apply -> Skills)
+  async function runPrepare() {
+    if (!user) {
+      setAuthOpen(true);
+      return;
+    }
+
+    if (selectedJobIds.length === 0) {
+      setError("Please select at least one company to process.");
+      return;
+    }
+
+    setLoading(true);
+    setPhase("preparing");
+    setError(null);
+    setStep(4);
+
+    logStep(`Phase 2 started for ${selectedJobIds.length} selected company/companies.`);
+
+    const timers = PHASE2_STEPS.map((name, i) =>
+      setTimeout(() => {
+        setStep(4 + i + 1);
+        logStep(`Agent started - ${name}`);
+      }, 500 * (i + 1))
+    );
+
+    try {
+      logStep("Dispatching document preparation & application tasks...");
+      const startRes = await api.runPrepare({
+        job_ids: selectedJobIds,
+        auto_apply: autoApply,
+      });
+
+      const taskId = startRes.task_id;
+      logStep(`Prepare task dispatched (ID: ${taskId}). Building tailored resumes & cover letters...`);
+
+      const res = await pollUntilDone<PipelineResult>(taskId);
+      timers.forEach(clearTimeout);
+
+      for (const s of res.agent_chain || []) {
+        const note = (s.summary as string) || (s.note as string) || "";
+        logSuccess(`Agent complete - ${s.agent}${note ? " - " + note : ""}`);
+      }
+
+      logSuccess(
+        `Phase 2 complete in ${res.elapsed_s}s - ${res.recommendations.length} tailored applications generated.`
+      );
+
+      setResult(res);
+      setStep(9);
+      setPhase("complete");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+      setPhase("selection");
     } finally {
       timers.forEach(clearTimeout);
       setLoading(false);
@@ -282,7 +365,7 @@ export default function PipelineRunner() {
         <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-neon-fuchsia">Production Pipeline</p>
         <h2 className="font-display text-4xl font-bold sm:text-5xl">Run your pipeline</h2>
         <p className="mx-auto mt-4 max-w-xl text-white/60">
-          Paste a CV, describe the role, and watch nine agents do the work.
+          Paste a CV, discover top matching jobs, and pick which companies to tailor documents for.
         </p>
       </div>
 
@@ -334,12 +417,12 @@ export default function PipelineRunner() {
             </div>
             <div>
               <label className="mb-2 block text-sm font-semibold text-white/80">
-                {autoApply ? "Apply to top" : "Top matches"}: {topK}
+                Top matches: {topK}
               </label>
               <input
                 type="range"
                 min={1}
-                max={50}
+                max={25}
                 value={topK}
                 onChange={(e) => setTopK(Number(e.target.value))}
                 className="mt-3 w-full accent-neon-fuchsia"
@@ -405,40 +488,108 @@ export default function PipelineRunner() {
       </div>
 
       <div className="mt-8 flex flex-col items-center gap-6">
-        <button onClick={run} disabled={loading} className="btn-glow min-w-[220px] disabled:opacity-60">
-          {loading ? (
+        <button
+          onClick={runDiscovery}
+          disabled={loading || phase === "preparing"}
+          className="btn-glow min-w-[220px] disabled:opacity-60"
+        >
+          {loading && phase === "discovering" ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Agents working...
+              <Loader2 className="h-4 w-4 animate-spin" /> Discovering jobs...
             </>
           ) : (
             <>
-              <Play className="h-4 w-4" /> Run pipeline
+              <Play className="h-4 w-4" /> Find Matching Jobs (Phase 1)
             </>
           )}
         </button>
 
-        {(loading || result) && (
+        {(loading || discoveryResult || result) && (
           <div className="w-full max-w-3xl glass rounded-2xl p-5">
-            <AgentFlow active={step} />
+            <AgentFlow active={step} pausedAtSelection={phase === "selection"} />
           </div>
         )}
 
         {error && (
           <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-200">
             <AlertCircle className="h-4 w-4" /> {error}
-            <span className="text-red-300/70">- open the activity panel (bottom-right) for the raw error.</span>
+            <span className="text-red-300/70">- check activity log for details.</span>
           </div>
         )}
       </div>
 
+      {/* Phase 1 Job Selection UI */}
+      {discoveryResult && (phase === "selection" || phase === "preparing") && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-12 rounded-3xl border border-neon-cyan/30 glass-strong p-6"
+        >
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <h3 className="font-display text-2xl font-bold text-white">
+                Select Companies to Apply & Prepare Documents
+              </h3>
+              <p className="text-sm text-white/60">
+                Found {discoveryResult.matches.length} verified match(es) in {discoveryResult.elapsed_s}s. Choose which ones to generate tailored resumes & cover letters for.
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleSelectAll}
+                className="glass inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white/80 hover:text-white"
+              >
+                {selectedJobIds.length === discoveryResult.matches.length ? (
+                  <>
+                    <CheckSquare className="h-4 w-4 text-neon-cyan" /> Deselect All
+                  </>
+                ) : (
+                  <>
+                    <Square className="h-4 w-4" /> Select All ({discoveryResult.matches.length})
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={runPrepare}
+                disabled={loading || selectedJobIds.length === 0}
+                className="btn-glow inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50"
+              >
+                {loading && phase === "preparing" ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Tailoring Documents...
+                  </>
+                ) : (
+                  <>
+                    Generate for {selectedJobIds.length} Selected <ArrowRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            {discoveryResult.matches.map((item, index) => (
+              <JobSelectCard
+                key={item.job.id}
+                matchItem={item}
+                selected={selectedJobIds.includes(item.job.id)}
+                onToggle={() => toggleJobSelection(item.job.id)}
+                index={index}
+              />
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Phase 2 Tailored Results UI */}
       <AnimatePresence>
         {result && (
           <motion.div variants={results} initial="hidden" animate="show" className="mt-10 space-y-4">
             <div className="flex flex-wrap items-center justify-center gap-6 text-center text-sm text-white/60">
-              <Stat label="Scraped" value={result.jobs_scraped} />
-              <Stat label="Verified" value={result.jobs_verified} />
-              <Stat label="Top matches" value={result.recommendations.length} />
-              <Stat label="Time" value={`${result.elapsed_s}s`} />
+              <Stat label="Tailored Applications" value={result.recommendations.length} />
+              <Stat label="Total Time" value={`${result.elapsed_s}s`} />
             </div>
             {result.recommendations.map((rec, i) => (
               <JobResultCard key={rec.job.id} rec={rec} index={i} />

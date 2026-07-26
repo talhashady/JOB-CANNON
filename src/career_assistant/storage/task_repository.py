@@ -89,3 +89,20 @@ class TaskRepository:
         )
         # We can't easily get rowcount from the generic DB interface, so just return 0
         return 0
+
+    def expire_stale_running(self, max_age_seconds: int = 600) -> None:
+        """Mark tasks stuck in 'pending' or 'running' for longer than max_age_seconds as 'error'."""
+        cutoff = (datetime.now(timezone.utc) - timedelta(seconds=max_age_seconds)).isoformat()
+        self.db.execute(
+            "UPDATE tasks SET status = ?, error = ?, updated_at = ? "
+            "WHERE status IN (?, ?) AND updated_at < ?",
+            (
+                "error",
+                "Task execution timed out or server restarted while processing.",
+                datetime.now(timezone.utc).isoformat(),
+                "pending",
+                "running",
+                cutoff,
+            ),
+        )
+

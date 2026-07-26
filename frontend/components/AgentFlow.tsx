@@ -16,27 +16,31 @@ const STEPS = [
 ];
 
 /** Animated horizontal pipeline showing how far a run has progressed. */
-export default function AgentFlow({ active }: { active: number }) {
+export default function AgentFlow({ active, pausedAtSelection }: { active: number; pausedAtSelection?: boolean }) {
   return (
     <div className="flex w-full items-center gap-1 overflow-x-auto py-2">
       {STEPS.map((s, i) => {
-        const done = i < active;
-        const current = i === active;
+        const done = i < active || (i === 3 && pausedAtSelection);
+        const current = i === active && !pausedAtSelection;
+        const isPauseCheckpoint = i === 3 && pausedAtSelection;
         return (
           <div key={s} className="flex flex-1 items-center gap-1">
             <div className="flex flex-col items-center gap-1.5">
               <motion.div
-                animate={current ? pulse : still}
+                animate={current || isPauseCheckpoint ? pulse : still}
                 className={cn(
                   "grid h-7 w-7 place-items-center rounded-full text-[10px] font-bold transition-colors",
-                  done && "bg-neon-lime/90 text-ink-950",
+                  isPauseCheckpoint && "bg-neon-cyan text-ink-950 shadow-glow ring-2 ring-neon-cyan/50",
+                  done && !isPauseCheckpoint && "bg-neon-lime/90 text-ink-950",
                   current && "bg-gradient-to-br from-neon-violet to-neon-cyan text-white shadow-glow",
-                  !done && !current && "glass text-white/40"
+                  !done && !current && !isPauseCheckpoint && "glass text-white/40"
                 )}
               >
-                {done ? "\u2713" : i + 1}
+                {isPauseCheckpoint ? "★" : done ? "\u2713" : i + 1}
               </motion.div>
-              <span className={cn("text-[10px]", current ? "text-white" : "text-white/40")}>{s}</span>
+              <span className={cn("text-[10px]", current || isPauseCheckpoint ? "text-white font-semibold" : "text-white/40")}>
+                {isPauseCheckpoint ? "Choose" : s}
+              </span>
             </div>
             {i < STEPS.length - 1 && (
               <div className="mb-4 h-px flex-1 bg-white/10">

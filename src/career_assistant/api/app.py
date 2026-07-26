@@ -370,6 +370,12 @@ def get_my_profile(user: User = Depends(get_current_user)) -> dict:
     return profile.model_dump(mode="json")
 
 
+class PrepareRequest(BaseModel):
+    job_ids: List[str] = Field(..., min_length=1, max_length=20)
+    auto_apply: bool = False
+    confirm_live_apply: bool = False
+
+
 # --- pipeline background execution helper -----------------------------------
 def _execute_pipeline_task(
     task_id: str,
@@ -399,6 +405,44 @@ def _execute_pipeline_task(
         repo.update(task_id, status="error", error=str(exc))
 
 
+def _execute_discovery_task(
+    task_id: str,
+    profile: UserProfile,
+    request: JobSearchRequest,
+    top_k: int,
+):
+    repo = TaskRepository()
+    repo.update(task_id, status="running")
+    try:
+        res = pipeline().run_discovery(profile, request, top_k=top_k)
+        repo.update(task_id, status="done", result=res)
+    except Exception as exc:
+        log.exception("Discovery execution failed for task %s", task_id)
+        repo.update(task_id, status="error", error=str(exc))
+
+
+def _execute_prepare_task(
+    task_id: str,
+    profile: UserProfile,
+    job_ids: List[str],
+    auto_apply: bool,
+    confirm_live_apply: bool = False,
+):
+    repo = TaskRepository()
+    repo.update(task_id, status="running")
+    try:
+        res = pipeline().run_prepare(
+            profile,
+            job_ids,
+            auto_apply=auto_apply,
+            confirm_live_apply=confirm_live_apply,
+        )
+        repo.update(task_id, status="done", result=res)
+    except Exception as exc:
+        log.exception("Prepare execution failed for task %s", task_id)
+        repo.update(task_id, status="error", error=str(exc))
+
+
 # --- pipeline routes --------------------------------------------------------
 @app.post("/run", status_code=202)
 def run_pipeline(
@@ -422,7 +466,6 @@ def run_pipeline(
     task_id = str(uuid.uuid4())
     task_repo = TaskRepository()
 
-    # Per-user concurrency limit
     from ..storage.task_repository import MAX_CONCURRENT_TASKS_PER_USER
     active = task_repo.count_active_for_user(user.id)
     if active >= MAX_CONCURRENT_TASKS_PER_USER:
@@ -432,8 +475,6 @@ def run_pipeline(
         )
 
     task_repo.create(task_id=task_id, user_id=user.id)
-
-    # Prune stale completed tasks
     task_repo.cleanup_expired()
         
     background_tasks.add_task(
@@ -451,9 +492,93 @@ def run_pipeline(
     return {"task_id": task_id}
 
 
+@app.post("/run/discover", status_code=202)
+def run_discovery_pipeline(
+    req: RunRequest,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Phase 1: Scrape -> Verify -> Match. Returns ranked jobs without generating documents."""
+    profile = ProfileRepository().get(user.id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Create a profile first via POST /profiles")
+    
+    request = JobSearchRequest(
+        query=req.query,
+        location=req.location,
+        sites=req.sites,
+        results_wanted=req.results_wanted,
+        is_remote=req.is_remote or req.work_arrangement == "remote",
+        work_arrangement=req.work_arrangement,
+    )
+    
+    task_id = str(uuid.uuid4())
+    task_repo = TaskRepository()
+
+    from ..storage.task_repository import MAX_CONCURRENT_TASKS_PER_USER
+    active = task_repo.count_active_for_user(user.id)
+    if active >= MAX_CONCURRENT_TASKS_PER_USER:
+        raise HTTPException(
+            status_code=429,
+            detail=f"You already have {active} active pipeline tasks. Please wait for them to complete.",
+        )
+
+    task_repo.create(task_id=task_id, user_id=user.id)
+    task_repo.cleanup_expired()
+        
+    background_tasks.add_task(
+        _execute_discovery_task,
+        task_id=task_id,
+        profile=profile,
+        request=request,
+        top_k=req.top_k,
+    )
+    
+    return {"task_id": task_id}
+
+
+@app.post("/run/prepare", status_code=202)
+def run_prepare_pipeline(
+    req: PrepareRequest,
+    background_tasks: BackgroundTasks,
+    user: User = Depends(get_current_user),
+) -> dict:
+    """Phase 2: Resume -> Cover Letter -> Apply -> Skills for user-selected jobs."""
+    profile = ProfileRepository().get(user.id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Create a profile first via POST /profiles")
+    
+    task_id = str(uuid.uuid4())
+    task_repo = TaskRepository()
+
+    from ..storage.task_repository import MAX_CONCURRENT_TASKS_PER_USER
+    active = task_repo.count_active_for_user(user.id)
+    if active >= MAX_CONCURRENT_TASKS_PER_USER:
+        raise HTTPException(
+            status_code=429,
+            detail=f"You already have {active} active pipeline tasks. Please wait for them to complete.",
+        )
+
+    task_repo.create(task_id=task_id, user_id=user.id)
+    task_repo.cleanup_expired()
+        
+    background_tasks.add_task(
+        _execute_prepare_task,
+        task_id=task_id,
+        profile=profile,
+        job_ids=req.job_ids,
+        auto_apply=req.auto_apply,
+        confirm_live_apply=req.confirm_live_apply,
+    )
+    
+    return {"task_id": task_id}
+
+
 @app.get("/run/{task_id}")
 def get_run_status(task_id: str, user: User = Depends(get_current_user)) -> dict:
-    task = TaskRepository().get(task_id)
+    task_repo = TaskRepository()
+    task_repo.expire_stale_running(max_age_seconds=600)
+    task = task_repo.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     if task["user_id"] != user.id:
