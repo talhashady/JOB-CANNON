@@ -54,6 +54,74 @@ function deriveGoals(p: UserProfile): string {
   return parts.join(" ") + ".";
 }
 
+function parseCvTextClient(text: string) {
+  if (!text || text.trim().length < 15) return null;
+  const lower = text.toLowerCase();
+
+  const titleMatches = [
+    "full stack engineer", "fullstack developer", "full stack developer",
+    "backend engineer", "backend developer", "frontend engineer", "frontend developer",
+    "software engineer", "software developer", "python developer", "python engineer",
+    "java developer", "react developer", "node.js developer", "node developer",
+    "devops engineer", "cloud engineer", "data engineer", "data scientist",
+    "data analyst", "product manager", "project manager", "qa engineer",
+    "ui/ux designer", "machine learning engineer", "ai engineer", "system architect"
+  ];
+
+  let detectedTitle = "";
+  for (const title of titleMatches) {
+    if (lower.includes(title)) {
+      detectedTitle = title;
+      break;
+    }
+  }
+
+  if (!detectedTitle) {
+    const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+    for (const line of lines.slice(0, 5)) {
+      if (/\b(engineer|developer|architect|analyst|specialist|manager|lead|consultant)\b/i.test(line) && line.length < 50) {
+        detectedTitle = line.replace(/^(senior|junior|lead|principal|staff)\s+/i, "");
+        break;
+      }
+    }
+  }
+
+  if (!detectedTitle) detectedTitle = "software engineer";
+
+  const commonSkills = [
+    "python", "javascript", "typescript", "react", "next.js", "node.js", "vue", "angular",
+    "java", "c++", "c#", "go", "golang", "rust", "sql", "postgresql", "mysql", "mongodb",
+    "redis", "docker", "kubernetes", "aws", "azure", "gcp", "fastapi", "django", "flask",
+    "express", "tailwind", "html", "css", "git", "linux", "rest api", "graphql", "ci/cd"
+  ];
+
+  const foundSkills: string[] = [];
+  for (const skill of commonSkills) {
+    const regex = new RegExp(`\\b${skill.replace(".", "\\.")}\\b`, "i");
+    if (regex.test(text)) {
+      foundSkills.push(skill);
+    }
+  }
+
+  const expMatch = text.match(/(\d+)\+?\s*(?:years?|yrs?)\b/i);
+  const years = expMatch ? `${expMatch[1]}+ years` : "";
+
+  const capitalizedTitle = detectedTitle.replace(/\b\w/g, (l) => l.toUpperCase());
+  const topSkillsStr = foundSkills.slice(0, 5).join(", ");
+
+  let generatedGoal = `Advance my career as a ${capitalizedTitle}`;
+  if (years) generatedGoal += ` leveraging ${years} of experience`;
+  if (topSkillsStr) generatedGoal += ` with strengths in ${topSkillsStr}`;
+  generatedGoal += ".";
+
+  return {
+    title: detectedTitle,
+    goals: generatedGoal,
+    query: detectedTitle.toLowerCase(),
+    skills: foundSkills,
+  };
+}
+
 export default function PipelineRunner() {
   const { user } = useAuth();
 
@@ -78,6 +146,22 @@ export default function PipelineRunner() {
     if (user) setError(null);
   }, [user]);
 
+  // Debounced auto-update of Career Goals and Role/Keywords when user stops typing in CV box (800ms)
+  useEffect(() => {
+    if (!cv || cv.trim().length < 15) return;
+
+    const timer = setTimeout(() => {
+      const parsed = parseCvTextClient(cv);
+      if (parsed) {
+        setGoals(parsed.goals);
+        setQuery(parsed.query);
+        logStep(`Auto-detected goals & role keywords for "${parsed.title}" from your CV`);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [cv]);
+
   function toggleSite(s: string) {
     setSites((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }
@@ -92,7 +176,10 @@ export default function PipelineRunner() {
     } else if (p.skills && p.skills.length) {
       setCv(p.skills.join(", "));
     }
-    setGoals(deriveGoals(p));
+    const derivedG = deriveGoals(p);
+    setGoals(derivedG);
+    const mainRole = (p.titles && p.titles[0]) || (p.skills && p.skills[0] ? `${p.skills[0]} developer` : "software engineer");
+    setQuery(mainRole.toLowerCase());
   }
 
   async function run() {
