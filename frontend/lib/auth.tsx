@@ -24,9 +24,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [wakingUp, setWakingUp] = useState(false);
 
-  // On mount, resolve the current user by calling /auth/me (using HttpOnly cookie).
+  // On mount, resolve current user if a session token exists in localStorage.
   useEffect(() => {
     let cancelled = false;
+
+    if (!api.getToken()) {
+      setLoading(false);
+      return;
+    }
 
     const timer = setTimeout(() => {
       if (!cancelled) setWakingUp(true);
