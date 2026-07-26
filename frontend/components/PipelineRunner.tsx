@@ -12,11 +12,6 @@ import JobResultCard from "./JobResultCard";
 import CvDropzone from "./CvDropzone";
 import AuthModal from "./AuthModal";
 
-const SAMPLE_CV =
-  "Backend engineer with 4 years of experience building Python microservices.\n" +
-  "Skills: python, fastapi, docker, postgresql, redis, aws, sql, git, linux.\n" +
-  "Built REST APIs with FastAPI and PostgreSQL; containerized services with Docker on AWS.";
-
 const SITES = ["indeed", "linkedin", "glassdoor", "google", "zip_recruiter"];
 
 type Arrangement = "any" | "remote" | "hybrid" | "onsite";
@@ -125,9 +120,9 @@ function parseCvTextClient(text: string) {
 export default function PipelineRunner() {
   const { user } = useAuth();
 
-  const [cv, setCv] = useState(SAMPLE_CV);
-  const [goals, setGoals] = useState("Grow into a senior platform engineering role.");
-  const [query, setQuery] = useState("python developer");
+  const [cv, setCv] = useState("");
+  const [goals, setGoals] = useState("");
+  const [query, setQuery] = useState("");
   const [location, setLocation] = useState("Remote");
   const [sites, setSites] = useState<string[]>(["indeed"]);
   const [workArrangement, setWorkArrangement] = useState<Arrangement>("remote");
@@ -284,7 +279,7 @@ export default function PipelineRunner() {
       <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
 
       <div className="mb-12 text-center">
-        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-neon-fuchsia">Live demo</p>
+        <p className="mb-3 text-sm font-semibold uppercase tracking-[0.2em] text-neon-fuchsia">Production Pipeline</p>
         <h2 className="font-display text-4xl font-bold sm:text-5xl">Run your pipeline</h2>
         <p className="mx-auto mt-4 max-w-xl text-white/60">
           Paste a CV, describe the role, and watch nine agents do the work.

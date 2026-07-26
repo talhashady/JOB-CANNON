@@ -12,12 +12,12 @@ const grotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "AI Career Assistant - Land your next role",
+  title: "JOB CANNON - AI Career Assistant",
   description:
-    "A multi-agent AI that scrapes, verifies, matches, tailors, and tracks jobs for you. Stunning, fast, and smart.",
-  metadataBase: new URL("https://ai-career-assistant.vercel.app"),
+    "JOB CANNON: A multi-agent AI that scrapes, verifies, matches, tailors, and tracks jobs for you. Stunning, fast, and smart.",
+  metadataBase: new URL("https://job-cannon.vercel.app"),
   openGraph: {
-    title: "AI Career Assistant",
+    title: "JOB CANNON - AI Career Assistant",
     description: "Your autonomous multi-agent career copilot.",
     type: "website",
   },

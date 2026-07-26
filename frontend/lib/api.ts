@@ -24,7 +24,7 @@ if (!_raw && typeof window !== "undefined" && process.env.NODE_ENV === "producti
 }
 const BASE = (_raw || "http://localhost:8000").replace(/\/+$/, "");
 
-const TOKEN_KEY = "careeros_jwt";
+const TOKEN_KEY = "jobcannon_jwt";
 
 function getToken(): string | null {
   if (typeof window === "undefined") return null;

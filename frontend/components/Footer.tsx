@@ -10,7 +10,7 @@ export default function Footer() {
           <span className="grid h-8 w-8 place-items-center rounded-xl bg-gradient-to-br from-neon-violet to-neon-cyan">
             <Sparkles className="h-4 w-4 text-white" />
           </span>
-          <span className="text-gradient">CareerOS</span>
+          <span className="text-gradient">JOB CANNON</span>
         </div>
         <p className="text-center text-sm text-white/40">
           Multi-agent career copilot · Built with Next.js, R3F &amp; FastAPI

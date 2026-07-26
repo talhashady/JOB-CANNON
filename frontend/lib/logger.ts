@@ -17,7 +17,7 @@ export interface ActivityPayload {
   details?: string;
 }
 
-export const ACTIVITY_EVENT = "careeros:activity";
+export const ACTIVITY_EVENT = "jobcannon:activity";
 
 export function logActivity(level: ActivityLevel, message: string, details?: string): void {
   if (typeof window === "undefined") return;
@@ -79,7 +79,7 @@ function userFriendlyMessage(operation: string, error: unknown): string {
 export function logError(operation: string, where: string, error: unknown): void {
   // Full diagnostics to browser console only (not shown to user)
   const raw = rawErrorText(error);
-  console.error(`[CareerOS Error] ${operation}\n  Where: ${where}\n  Raw: ${raw}`);
+  console.error(`[JOB CANNON Error] ${operation}\n  Where: ${where}\n  Raw: ${raw}`);
 
   // Safe user-facing message in the UI activity panel
   const friendlyMessage = userFriendlyMessage(operation, error);

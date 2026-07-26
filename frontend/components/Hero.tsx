@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { ArrowRight, Bot, ShieldCheck, Sparkles } from "lucide-react";
@@ -52,14 +53,14 @@ export default function Hero() {
           transition={heroTransition}
           className="mx-auto mt-6 max-w-xl text-balance text-lg text-white/70"
         >
-          CareerOS scrapes real jobs, verifies them, matches them to your profile, tailors your
+          JOB CANNON scrapes real jobs, verifies them, matches them to your profile, tailors your
           resume &amp; cover letter, and preps you for interviews — all in one orchestrated flow.
         </motion.p>
 
         <motion.div variants={fadeUp} transition={heroTransition} className="mt-10 flex flex-wrap items-center justify-center gap-4">
-          <a href="#run" className="btn-glow">
+          <Link href="/demo" className="btn-glow">
             Run the pipeline <ArrowRight className="h-4 w-4" />
-          </a>
+          </Link>
           <a id="hero-meet-agents" href="#agents" className="btn-ghost">
             <Bot className="h-4 w-4" /> Meet the agents
           </a>
