@@ -88,6 +88,8 @@ class PostgresDatabase:
 
         self._psycopg = psycopg
         self._dict_row = dict_row
+        if dsn.startswith("postgres://"):
+            dsn = "postgresql://" + dsn[11:]
         self.dsn = dsn
         self._lock = threading.Lock()
         try:
