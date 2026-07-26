@@ -15,13 +15,13 @@ def get_current_user(request: Request) -> User:
     Raises 401 on any auth problem (missing/invalid/expired token, or unknown user).
     Raises 503 on database unavailability.
     """
-    token = request.cookies.get("careeros_token")
+    token = None
+    authorization = request.headers.get("Authorization")
+    if authorization and authorization.lower().startswith("bearer "):
+        token = authorization.split(" ", 1)[1].strip()
 
-    # Fallback to Authorization header (for swagger docs, API clients, testing)
     if not token:
-        authorization = request.headers.get("Authorization")
-        if authorization and authorization.lower().startswith("bearer "):
-            token = authorization.split(" ", 1)[1].strip()
+        token = request.cookies.get("careeros_token")
 
     if not token:
         raise HTTPException(status_code=401, detail="Missing or malformed authentication credentials")

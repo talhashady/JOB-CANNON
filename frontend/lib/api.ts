@@ -44,7 +44,7 @@ function clearToken(): void {
   if (typeof window !== "undefined") {
     localStorage.removeItem(TOKEN_KEY);
   }
-  fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "include" }).catch(() => {});
+  fetch(`${BASE}/auth/logout`, { method: "POST", credentials: "same-origin" }).catch(() => {});
 }
 
 /**
@@ -81,7 +81,7 @@ async function http<T>(operation: string, path: string, init?: RequestInit): Pro
       return await fetch(url, {
         ...init,
         headers,
-        credentials: "include",
+        credentials: "same-origin",
         cache: "no-store",
         signal: controller.signal,
       });
