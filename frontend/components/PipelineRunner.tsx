@@ -140,38 +140,16 @@ export default function PipelineRunner() {
     if (user) setError(null);
   }, [user]);
 
-  useEffect(() => {
-    if (!cv || cv.trim().length < 15) return;
-
-    const timer = setTimeout(() => {
-      const parsed = parseCvTextClient(cv);
-      if (parsed) {
-        setGoals(parsed.goals);
-        setQuery(parsed.query);
-        logStep(`Auto-detected goals & role keywords for "${parsed.title}" from your CV`);
-      }
-    }, 800);
-
-    return () => clearTimeout(timer);
-  }, [cv]);
-
   function toggleSite(s: string) {
     setSites((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
   }
 
   function applyParsedProfile(p: UserProfile) {
-    if (p.summary && p.summary.trim()) {
-      setCv(p.summary.trim());
-      logSuccess("CV summary loaded into the CV box");
-    } else if (p.raw_cv_text && p.raw_cv_text.trim()) {
-      setCv(p.raw_cv_text);
-    } else if (p.skills && p.skills.length) {
-      setCv(p.skills.join(", "));
+    const rawText = (p.raw_cv_text || p.summary || (p.skills && p.skills.length ? p.skills.join(", ") : "")).trim();
+    if (rawText) {
+      setCv(rawText);
+      logSuccess("Full CV text pasted into the CV text box");
     }
-    const derivedG = deriveGoals(p);
-    setGoals(derivedG);
-    const mainRole = (p.titles && p.titles[0]) || (p.skills && p.skills[0] ? `${p.skills[0]} developer` : "software engineer");
-    setQuery(mainRole.toLowerCase());
   }
 
   function toggleJobSelection(jobId: string) {

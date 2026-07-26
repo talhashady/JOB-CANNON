@@ -121,7 +121,7 @@ export default function CvDropzone({
             : busy
             ? "Parsing your CV..."
             : done
-            ? "CV parsed - your CV & goals were filled in below"
+            ? "CV uploaded - full text pasted into CV box below"
             : "Drag & drop your CV, or click to browse"}
         </p>
         <p className="mt-1 text-xs text-white/45">
