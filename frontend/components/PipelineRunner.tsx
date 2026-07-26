@@ -148,8 +148,40 @@ export default function PipelineRunner() {
     const rawText = (p.raw_cv_text || p.summary || (p.skills && p.skills.length ? p.skills.join(", ") : "")).trim();
     if (rawText) {
       setCv(rawText);
-      logSuccess("Full CV text pasted into the CV text box");
     }
+
+    // Populate Career Goals
+    const goalsText = p.career_goals?.trim() || deriveGoals(p);
+    if (goalsText) {
+      setGoals(goalsText);
+    }
+
+    // Populate ONLY ONE single job title into the Role / keywords box
+    let singleTitle = "";
+    if (p.titles && p.titles.length > 0 && p.titles[0].trim()) {
+      singleTitle = p.titles[0].trim();
+    } else if (p.headline && p.headline.trim()) {
+      singleTitle = p.headline.trim();
+    }
+
+    if (!singleTitle && rawText) {
+      const parsed = parseCvTextClient(rawText);
+      if (parsed && parsed.title) {
+        singleTitle = parsed.title;
+      }
+    }
+
+    if (singleTitle) {
+      // Ensure strictly one job title by splitting on punctuation
+      singleTitle = singleTitle.split(/[,|;]/)[0].trim();
+    }
+
+    if (!singleTitle) {
+      singleTitle = "software engineer";
+    }
+
+    setQuery(singleTitle.toLowerCase());
+    logSuccess(`CV uploaded: full text, goals, and primary role "${singleTitle}" populated`);
   }
 
   function toggleJobSelection(jobId: string) {
