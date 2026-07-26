@@ -87,82 +87,38 @@ def _cookie_kwargs(request: Optional[Request] = None) -> dict:
 
 
 # --- CORS -------------------------------------------------------------------
-# Starlette's CORSMiddleware short-circuits OPTIONS preflight responses and
-# sometimes omits `access-control-allow-credentials: true`.  Browsers demand
-# this header on preflights for credentialed requests (cookies) or they reject
-# the actual request with "Failed to fetch".
-#
-# CredentialsCORSFix is added AFTER CORSMiddleware via add_middleware, which
-# means Starlette prepends it to the stack — so it runs OUTSIDE/BEFORE
-# CORSMiddleware and can patch the response on the way out.
+@app.middleware("http")
+async def custom_cors_middleware(request: Request, call_next):
+    origin = request.headers.get("origin", "")
+    allowed_set = set(_origins)
+    is_allowed = (
+        not origin
+        or origin in allowed_set
+        or origin.endswith(".vercel.app")
+        or origin.startswith("http://localhost")
+        or origin.startswith("http://127.0.0.1")
+    )
 
-from starlette.types import ASGIApp, Receive, Scope, Send
+    if request.method == "OPTIONS":
+        response = Response(status_code=204)
+        if is_allowed and origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+            response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            response.headers["Access-Control-Allow-Headers"] = request.headers.get(
+                "Access-Control-Request-Headers", "Authorization, Content-Type, X-Requested-With, Accept"
+            )
+            response.headers["Access-Control-Max-Age"] = "86400"
+            response.headers["Vary"] = "Origin"
+        return response
 
-
-class CredentialsCORSFix:
-    """ASGI middleware that ensures ALL cross-origin responses include allow-credentials.
-
-    Starlette's CORSMiddleware sometimes omits `access-control-allow-credentials: true`
-    on preflight AND actual responses. Browsers demand this header on every credentialed
-    cross-origin response or they reject the response body with "Failed to fetch".
-    """
-
-    def __init__(self, app: ASGIApp, allowed_origins: set[str] | None = None) -> None:
-        self.app = app
-        self.allowed_origins = allowed_origins or set()
-
-    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http":
-            await self.app(scope, receive, send)
-            return
-
-        # Check origin from raw ASGI headers (case-insensitive key comparison)
-        origin = ""
-        for key, val in scope.get("headers", []):
-            if key.lower() == b"origin":
-                origin = val.decode().strip()
-                break
-
-        is_allowed = (
-            origin in self.allowed_origins
-            or origin.endswith(".vercel.app")
-            or origin.startswith("http://localhost")
-            or origin.startswith("http://127.0.0.1")
-        )
-
-        if not is_allowed or not origin:
-            await self.app(scope, receive, send)
-            return
-
-        # Intercept the response and inject access-control-allow-credentials: true
-        async def patched_send(message):
-            if message["type"] == "http.response.start":
-                headers = list(message.get("headers", []))
-                # Remove any existing credentials header to avoid duplicates
-                headers = [(k, v) for k, v in headers if k.lower() != b"access-control-allow-credentials"]
-                headers.append((b"access-control-allow-credentials", b"true"))
-                # Also ensure the origin is reflected (not just for preflights)
-                has_origin = any(k.lower() == b"access-control-allow-origin" for k, v in headers)
-                if not has_origin:
-                    headers.append((b"access-control-allow-origin", origin.encode()))
-                message = {**message, "headers": headers}
-            await send(message)
-
-        await self.app(scope, receive, patched_send)
-
-
-# Order matters: add_middleware PREPENDS, so the last added runs outermost.
-# 1. First add CORSMiddleware (inner)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["X-Request-Id"],
-)
-# 2. Then add CredentialsCORSFix (outer — runs before CORSMiddleware)
-app.add_middleware(CredentialsCORSFix, allowed_origins=set(_origins))
+    response = await call_next(request)
+    if is_allowed and origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Expose-Headers"] = "X-Request-Id"
+        response.headers["Vary"] = "Origin"
+    return response
 
 
 # --- Global Exception Handlers ----------------------------------------------
