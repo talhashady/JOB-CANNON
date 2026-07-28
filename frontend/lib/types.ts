@@ -134,6 +134,7 @@ export interface PipelineResult {
 export interface RunParams {
   query: string;
   location: string;
+  country?: string;
   sites: string[];
   results_wanted: number;
   is_remote: boolean;
@@ -148,6 +149,7 @@ export interface RunParams {
 export interface AutoApplyParams {
   query: string;
   location: string;
+  country?: string;
   sites: string[];
   results_wanted: number;
   is_remote: boolean;

@@ -92,8 +92,33 @@ def _filter_by_arrangement(jobs: List[Job], arrangement: str) -> List[Job]:
     return out
 
 
+_COUNTRY_ALIASES = {
+    "united states": "USA",
+    "us": "USA",
+    "usa": "USA",
+    "united kingdom": "UK",
+    "uk": "UK",
+    "great britain": "UK",
+    "united arab emirates": "UAE",
+    "uae": "UAE",
+    "worldwide": "USA",
+    "global": "USA",
+    "remote": "USA",
+    "any": "USA",
+}
+
+
+def _resolve_country(c: str | None) -> str:
+    if not c or not c.strip():
+        return "USA"
+    val = c.strip().lower()
+    return _COUNTRY_ALIASES.get(val, c.strip())
+
+
 def _scrape_with_jobspy(request: JobSearchRequest) -> List[Job]:
     from jobspy import scrape_jobs as jobspy_scrape  # type: ignore
+
+    country_val = _resolve_country(request.country)
 
     df = jobspy_scrape(
         site_name=request.sites,
@@ -102,7 +127,7 @@ def _scrape_with_jobspy(request: JobSearchRequest) -> List[Job]:
         results_wanted=min(request.results_wanted, 1000),
         hours_old=request.hours_old,
         is_remote=request.is_remote,
-        country_indeed=request.country,
+        country_indeed=country_val,
     )
     jobs: List[Job] = []
     if df is None or len(df) == 0:

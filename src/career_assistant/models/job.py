@@ -19,7 +19,7 @@ class JobSearchRequest(BaseModel):
     is_remote: bool = False
     # any | remote | hybrid | onsite - applied as a post-scrape filter.
     work_arrangement: str = Field(default="any", description="any | remote | hybrid | onsite")
-    country: str = Field(default="USA", description="JobSpy 'country_indeed' value.")
+    country: str = Field(default="Worldwide", description="JobSpy 'country_indeed' value or 'Worldwide'.")
 
     @field_validator("results_wanted")
     @classmethod

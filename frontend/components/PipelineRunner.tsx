@@ -270,12 +270,69 @@ function parseCvTextClient(text: string) {
   };
 }
 
+const COUNTRIES = [
+  { value: "Worldwide", label: "🌐 Worldwide / Remote" },
+  { value: "USA", label: "🇺🇸 United States" },
+  { value: "UK", label: "🇬🇧 United Kingdom" },
+  { value: "Canada", label: "🇨🇦 Canada" },
+  { value: "Australia", label: "🇦🇺 Australia" },
+  { value: "Germany", label: "🇩🇪 Germany" },
+  { value: "France", label: "🇫🇷 France" },
+  { value: "India", label: "🇮🇳 India" },
+  { value: "Pakistan", label: "🇵🇰 Pakistan" },
+  { value: "UAE", label: "🇦🇪 United Arab Emirates" },
+  { value: "Saudi Arabia", label: "🇸🇦 Saudi Arabia" },
+  { value: "Singapore", label: "🇸🇬 Singapore" },
+  { value: "Netherlands", label: "🇳🇱 Netherlands" },
+  { value: "Switzerland", label: "🇨🇭 Switzerland" },
+  { value: "Spain", label: "🇪🇸 Spain" },
+  { value: "Italy", label: "🇮🇹 Italy" },
+  { value: "Brazil", label: "🇧🇷 Brazil" },
+  { value: "Mexico", label: "🇲🇽 Mexico" },
+  { value: "Japan", label: "🇯🇵 Japan" },
+  { value: "China", label: "🇨🇳 China" },
+  { value: "South Korea", label: "🇰🇷 South Korea" },
+  { value: "Ireland", label: "🇮🇪 Ireland" },
+  { value: "Sweden", label: "🇸🇪 Sweden" },
+  { value: "Norway", label: "🇳🇴 Norway" },
+  { value: "Denmark", label: "🇩🇰 Denmark" },
+  { value: "Finland", label: "🇫🇮 Finland" },
+  { value: "Poland", label: "🇵🇱 Poland" },
+  { value: "Portugal", label: "🇵🇹 Portugal" },
+  { value: "Belgium", label: "🇧🇪 Belgium" },
+  { value: "Austria", label: "🇦🇹 Austria" },
+  { value: "Greece", label: "🇬🇷 Greece" },
+  { value: "Turkey", label: "🇹🇷 Turkey" },
+  { value: "Egypt", label: "🇪🇬 Egypt" },
+  { value: "Qatar", label: "🇶🇦 Qatar" },
+  { value: "Kuwait", label: "🇰🇼 Kuwait" },
+  { value: "Bahrain", label: "🇧🇭 Bahrain" },
+  { value: "Oman", label: "🇴🇲 Oman" },
+  { value: "South Africa", label: "🇿🇦 South Africa" },
+  { value: "Nigeria", label: "🇳🇬 Nigeria" },
+  { value: "New Zealand", label: "🇳🇿 New Zealand" },
+  { value: "Philippines", label: "🇵🇭 Philippines" },
+  { value: "Malaysia", label: "🇲🇾 Malaysia" },
+  { value: "Indonesia", label: "🇮🇩 Indonesia" },
+  { value: "Thailand", label: "🇹🇭 Thailand" },
+  { value: "Vietnam", label: "🇻🇳 Vietnam" },
+  { value: "Argentina", label: "🇦🇷 Argentina" },
+  { value: "Chile", label: "🇨🇱 Chile" },
+  { value: "Colombia", label: "🇨🇴 Colombia" },
+  { value: "Peru", label: "🇵🇪 Peru" },
+  { value: "Czech Republic", label: "🇨🇿 Czech Republic" },
+  { value: "Hungary", label: "🇭🇺 Hungary" },
+  { value: "Romania", label: "🇷🇴 Romania" },
+  { value: "Ukraine", label: "🇺🇦 Ukraine" },
+];
+
 export default function PipelineRunner() {
   const { user } = useAuth();
 
   const [cv, setCv] = useState("");
   const [goals, setGoals] = useState("");
   const [query, setQuery] = useState("");
+  const [country, setCountry] = useState("Worldwide");
   const [location, setLocation] = useState("Remote");
   const [sites, setSites] = useState<string[]>(["indeed"]);
   const [workArrangement, setWorkArrangement] = useState<Arrangement>("any");
@@ -410,7 +467,7 @@ export default function PipelineRunner() {
     setStep(0);
 
     logStep(
-      `Phase 1 Discovery started - query: "${query}", location: "${location}", ` +
+      `Phase 1 Discovery started - query: "${query}", country: "${country}", location: "${location}", ` +
         `scan ${jobCount}/board on ${(sites.length ? sites : ["indeed"]).join(", ")}`
     );
 
@@ -430,6 +487,7 @@ export default function PipelineRunner() {
       const startRes = await api.runDiscover({
         query,
         location,
+        country,
         sites: sites.length ? sites : ["indeed"],
         results_wanted: jobCount,
         is_remote: workArrangement === "remote",
@@ -579,13 +637,30 @@ export default function PipelineRunner() {
           />
           <div className="mt-4 grid grid-cols-2 gap-4">
             <div>
-              <label className="mb-2 block text-sm font-semibold text-white/80">Location</label>
+              <label className="mb-2 block text-sm font-semibold text-white/80">Country</label>
+              <select
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="w-full rounded-xl border border-white/10 bg-ink-950/60 p-3 text-sm text-white/90 outline-none focus:border-neon-violet/60"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.value} value={c.value} className="bg-ink-950 text-white">
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-white/80">City / State / Region</label>
               <input
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. London, Remote, or leave empty"
                 className="w-full rounded-xl border border-white/10 bg-ink-950/60 p-3 text-sm text-white/90 outline-none focus:border-neon-violet/60"
               />
             </div>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-4">
             <div>
               <label className="mb-2 block text-sm font-semibold text-white/80">
                 Top matches: {topK}
@@ -599,19 +674,21 @@ export default function PipelineRunner() {
                 className="mt-3 w-full accent-neon-fuchsia"
               />
             </div>
+            <div>
+              <label className="mb-2 block text-sm font-semibold text-white/80">
+                Scan count: {jobCount}
+              </label>
+              <input
+                type="range"
+                min={10}
+                max={250}
+                step={10}
+                value={jobCount}
+                onChange={(e) => setJobCount(Number(e.target.value))}
+                className="mt-3 w-full accent-neon-cyan"
+              />
+            </div>
           </div>
-          <label className="mb-2 mt-4 block text-sm font-semibold text-white/80">
-            Jobs to scan per board: {jobCount}
-          </label>
-          <input
-            type="range"
-            min={10}
-            max={250}
-            step={10}
-            value={jobCount}
-            onChange={(e) => setJobCount(Number(e.target.value))}
-            className="w-full accent-neon-cyan"
-          />
           <label className="mb-2 mt-4 block text-sm font-semibold text-white/80">Job boards</label>
           <div className="flex flex-wrap gap-2">
             {SITES.map((s) => (

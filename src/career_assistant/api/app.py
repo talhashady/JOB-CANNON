@@ -209,6 +209,7 @@ class ProfileRequest(BaseModel):
 class RunRequest(BaseModel):
     query: str = Field(..., min_length=1)
     location: str = "Remote"
+    country: str = "Worldwide"
     sites: List[str] = Field(default_factory=lambda: get_settings().default_job_sites)
     results_wanted: int = Field(default=80, ge=1, le=1000)
     is_remote: bool = False
@@ -223,6 +224,7 @@ class RunRequest(BaseModel):
 class AutoApplyRequest(BaseModel):
     query: str = Field(..., min_length=1)
     location: str = "Remote"
+    country: str = "Worldwide"
     sites: List[str] = Field(default_factory=lambda: get_settings().default_job_sites)
     results_wanted: int = Field(default=120, ge=1, le=1000)
     is_remote: bool = False
@@ -457,6 +459,7 @@ def run_pipeline(
     request = JobSearchRequest(
         query=req.query,
         location=req.location,
+        country=req.country,
         sites=req.sites,
         results_wanted=req.results_wanted,
         is_remote=req.is_remote or req.work_arrangement == "remote",
@@ -506,6 +509,7 @@ def run_discovery_pipeline(
     request = JobSearchRequest(
         query=req.query,
         location=req.location,
+        country=req.country,
         sites=req.sites,
         results_wanted=req.results_wanted,
         is_remote=req.is_remote or req.work_arrangement == "remote",
@@ -598,6 +602,7 @@ def auto_apply(req: AutoApplyRequest, user: User = Depends(get_current_user)) ->
     request = JobSearchRequest(
         query=req.query,
         location=req.location,
+        country=req.country,
         sites=req.sites,
         results_wanted=req.results_wanted,
         is_remote=req.is_remote or req.work_arrangement == "remote",
